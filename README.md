@@ -8,7 +8,7 @@ It gives fans safe, accessible, multilingual navigation and gives control-room
 staff real-time congestion decision support — without ever letting the AI
 hallucinate a route.
 
-**🔗 Live demo:** `https://<your-username>.github.io/<repo>/`
+**🔗 Live demo:** `https://dravinrai.github.io/pulseroute/`
 (an interactive, WCAG-conscious web app with a live stadium map — see
 [§ Deploying the live demo](#7-deploying-the-live-demo-github-pages)).
 
