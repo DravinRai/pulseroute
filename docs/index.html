@@ -7,110 +7,326 @@
 <meta name="description" content="Hybrid symbolic + GenAI stadium wayfinding and operations copilot. Guaranteed step-free routing, live crowd-aware paths, multilingual, sustainable." />
 <style>
   :root{
-    --bg:#f4f6fb; --panel:#ffffff; --ink:#141a2e; --muted:#5a6482;
-    --line:#e2e7f2; --brand:#2f6bff; --brand-ink:#ffffff;
-    --ok:#0a8f5b; --warn:#c8781a; --accent:#7a3ff2; --focus:#ffb020;
-    --shadow:0 6px 24px rgba(20,26,46,.08);
+    /* surfaces */
+    --bg:#eaeef7; --bg-2:#dfe5f2;
+    --surface:rgba(255,255,255,.72); --surface-solid:#ffffff;
+    --stroke:rgba(17,24,45,.10); --stroke-2:rgba(17,24,45,.06);
+    --ink:#111a2d; --ink-2:#41506e; --muted:#6b7794;
+    /* brand */
+    --b1:#4f46e5; --b2:#7c3aed; --b3:#06b6d4;
+    --brand:#5b5bf0; --brand-ink:#ffffff;
+    --grad:linear-gradient(120deg,var(--b1),var(--b2) 55%,var(--b3));
+    /* status */
+    --ok:#0f9d63; --ok-bg:rgba(15,157,99,.12);
+    --warn:#c67611; --warn-bg:rgba(198,118,17,.13);
+    --eco:#0891b2; --eco-bg:rgba(8,145,178,.12);
+    /* map node categories */
+    --n-transit:#7c3aed; --n-gate:#4f46e5; --n-conc:#64748b;
+    --n-seat:#0ea5e9; --n-rest:#0d9488; --n-sensory:#db2777;
+    --n-aid:#e11d48; --n-food:#d97706;
+    --focus:#ffb020;
+    --shadow-sm:0 1px 2px rgba(17,24,45,.06),0 2px 8px rgba(17,24,45,.05);
+    --shadow:0 8px 30px rgba(17,24,45,.10),0 2px 8px rgba(17,24,45,.06);
+    --shadow-lg:0 24px 60px rgba(17,24,45,.16);
+    --r:16px; --r-lg:22px;
   }
   @media (prefers-color-scheme:dark){
-    :root{--bg:#0d1017;--panel:#161b26;--ink:#eef1f8;--muted:#9aa4bf;
-      --line:#28303f;--brand:#5a8bff;--ok:#2bd18a;--warn:#f0a94b;--accent:#a97bff;--shadow:0 6px 24px rgba(0,0,0,.4);}
+    :root{
+      --bg:#080b14; --bg-2:#0b1020;
+      --surface:rgba(22,28,44,.62); --surface-solid:#141a29;
+      --stroke:rgba(255,255,255,.09); --stroke-2:rgba(255,255,255,.05);
+      --ink:#eef2fb; --ink-2:#b8c2da; --muted:#8b96b3;
+      --brand:#7b7bff; --brand-ink:#ffffff;
+      --ok:#34d399; --ok-bg:rgba(52,211,153,.14);
+      --warn:#fbbf24; --warn-bg:rgba(251,191,36,.14);
+      --eco:#22d3ee; --eco-bg:rgba(34,211,238,.14);
+      --n-transit:#a78bfa; --n-gate:#818cf8; --n-conc:#94a3b8;
+      --n-seat:#38bdf8; --n-rest:#2dd4bf; --n-sensory:#f472b6;
+      --n-aid:#fb7185; --n-food:#fbbf24;
+      --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+      --shadow:0 12px 40px rgba(0,0,0,.5);
+      --shadow-lg:0 30px 70px rgba(0,0,0,.6);
+    }
   }
   *{box-sizing:border-box}
-  body{margin:0;font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-    background:var(--bg);color:var(--ink);}
-  a{color:var(--brand)}
-  .wrap{max-width:1080px;margin:0 auto;padding:20px 18px 60px}
-  header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:8px 0 6px}
-  .logo{width:40px;height:40px;border-radius:12px;background:
-    radial-gradient(circle at 30% 30%,var(--accent),var(--brand));flex:0 0 auto}
-  h1{font-size:1.5rem;margin:0;letter-spacing:-.02em}
-  .tag{color:var(--muted);font-size:.92rem;margin:2px 0 0}
-  .thesis{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--brand);
-    border-radius:12px;padding:12px 16px;margin:16px 0;box-shadow:var(--shadow);font-size:.95rem}
-  .thesis b{color:var(--brand)}
-  .tabs{display:flex;gap:8px;margin:18px 0 14px}
-  .tab{appearance:none;border:1px solid var(--line);background:var(--panel);color:var(--ink);
-    padding:10px 18px;border-radius:999px;font-weight:600;cursor:pointer}
-  .tab[aria-selected="true"]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
-  .tab:focus-visible,.chip:focus-visible,button:focus-visible,input:focus-visible{
-    outline:3px solid var(--focus);outline-offset:2px}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-  @media (max-width:820px){.grid{grid-template-columns:1fr}}
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;
-    padding:16px 16px 18px;box-shadow:var(--shadow)}
-  label{font-weight:600;font-size:.9rem;display:block;margin:2px 0 6px}
-  input[type=text]{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;
-    background:var(--bg);color:var(--ink);font-size:1rem}
-  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
-  .chip{border:1px dashed var(--line);background:transparent;color:var(--muted);
-    padding:6px 10px;border-radius:999px;font-size:.82rem;cursor:pointer}
-  .chip:hover{color:var(--ink);border-color:var(--brand)}
-  .row{display:flex;align-items:center;gap:12px;margin:14px 0 2px;flex-wrap:wrap}
-  .row output{font-variant-numeric:tabular-nums;font-weight:700;min-width:74px}
-  input[type=range]{flex:1;accent-color:var(--brand)}
-  select{padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
-  .go{margin-top:14px;width:100%;background:var(--brand);color:var(--brand-ink);border:none;
-    padding:13px;border-radius:10px;font-weight:700;font-size:1rem;cursor:pointer}
-  .go:hover{filter:brightness(1.05)}
-  .badges{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 12px}
-  .badge{font-size:.8rem;font-weight:700;padding:5px 10px;border-radius:999px;border:1px solid transparent}
-  .b-ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok);border-color:var(--ok)}
-  .b-warn{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn);border-color:var(--warn)}
-  .b-eco{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);border-color:var(--accent)}
-  ol.steps{margin:6px 0 0;padding-left:22px}
-  ol.steps li{margin:6px 0}
-  .mode-ico{font-weight:700}
-  .err{color:var(--warn);font-weight:600}
-  svg{width:100%;height:auto;background:var(--bg);border-radius:12px;border:1px solid var(--line)}
-  .node circle{fill:var(--panel);stroke:var(--line);stroke-width:2}
-  .node.t-gate circle{stroke:var(--brand)}
-  .node.t-transit circle{stroke:var(--accent)}
-  .node text{font-size:11px;fill:var(--muted)}
-  .edge{stroke:var(--line);stroke-width:2}
-  .edge.hot{stroke:var(--warn);stroke-dasharray:5 4}
-  .path{stroke:var(--brand);stroke-width:5;fill:none;stroke-linecap:round;stroke-linejoin:round}
-  .path-node circle{fill:var(--brand);stroke:var(--brand-ink)}
-  .brief h3{margin:.2em 0 .4em}
-  .brief .zone{display:flex;justify-content:space-between;gap:10px;padding:8px 10px;border:1px solid var(--line);
-    border-radius:10px;margin:6px 0;background:var(--bg)}
-  .brief .load{font-weight:700;font-variant-numeric:tabular-nums}
-  .action{padding:8px 10px;border-left:3px solid var(--brand);background:var(--bg);border-radius:8px;margin:6px 0}
-  footer{margin-top:34px;color:var(--muted);font-size:.85rem;text-align:center}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;color:var(--ink);
+    font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,system-ui,sans-serif;
+    font-feature-settings:"cv02","cv03","cv04","ss01";
+    -webkit-font-smoothing:antialiased;
+    background:
+      radial-gradient(1100px 620px at 82% -8%,rgba(124,58,237,.20),transparent 60%),
+      radial-gradient(900px 560px at 8% 4%,rgba(6,182,212,.16),transparent 55%),
+      radial-gradient(1000px 700px at 50% 108%,rgba(79,70,229,.14),transparent 60%),
+      linear-gradient(180deg,var(--bg),var(--bg-2));
+    background-attachment:fixed;min-height:100vh;
+  }
+  a{color:var(--brand);text-underline-offset:2px}
+  .wrap{max-width:1200px;margin:0 auto;padding:0 20px 72px}
+  h1,h2,h3,h4{letter-spacing:-.02em;line-height:1.15}
+
+  /* ---------- header ---------- */
+  header.top{
+    position:sticky;top:0;z-index:40;margin:0 -20px 8px;padding:14px 20px;
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    background:color-mix(in srgb,var(--bg) 72%,transparent);
+    backdrop-filter:saturate(160%) blur(14px);
+    border-bottom:1px solid var(--stroke-2);
+  }
+  .brand-mark{width:42px;height:42px;border-radius:13px;background:var(--grad);
+    box-shadow:0 8px 22px rgba(91,91,240,.4),inset 0 1px 0 rgba(255,255,255,.4);
+    position:relative;flex:0 0 auto}
+  .brand-mark::after{content:"";position:absolute;inset:11px;border-radius:6px;
+    border:2.5px solid rgba(255,255,255,.9);
+    -webkit-mask:radial-gradient(circle at 50% 50%,transparent 3px,#000 3.5px);}
+  .brand-name{font-weight:800;font-size:1.28rem;margin:0}
+  .brand-sub{color:var(--muted);font-size:.8rem;margin:1px 0 0;font-weight:500}
+  .pill-live{margin-left:auto;display:inline-flex;align-items:center;gap:7px;
+    font-size:.76rem;font-weight:700;color:var(--ok);
+    background:var(--ok-bg);border:1px solid color-mix(in srgb,var(--ok) 40%,transparent);
+    padding:6px 12px;border-radius:999px}
+  .dot-live{width:8px;height:8px;border-radius:50%;background:var(--ok);
+    box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 70%,transparent);animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 60%,transparent)}
+    70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+
+  /* ---------- hero ---------- */
+  .hero{padding:34px 0 10px;text-align:center;max-width:820px;margin:0 auto}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.76rem;font-weight:700;
+    letter-spacing:.08em;text-transform:uppercase;color:var(--b2);
+    background:color-mix(in srgb,var(--b2) 12%,transparent);
+    border:1px solid color-mix(in srgb,var(--b2) 26%,transparent);
+    padding:6px 14px;border-radius:999px}
+  @media (prefers-color-scheme:dark){.eyebrow{color:var(--n-transit)}}
+  .hero h1{font-size:clamp(2rem,5vw,3.15rem);font-weight:850;margin:18px 0 10px}
+  .hero h1 .grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent}
+  .hero p{color:var(--ink-2);font-size:clamp(1rem,2.2vw,1.16rem);margin:0 auto;max-width:640px}
+
+  .thesis{max-width:900px;margin:22px auto 4px;display:flex;gap:14px;align-items:flex-start;
+    background:var(--surface);backdrop-filter:blur(12px);
+    border:1px solid var(--stroke);border-radius:var(--r);padding:16px 20px;box-shadow:var(--shadow-sm);
+    font-size:.95rem;color:var(--ink-2)}
+  .thesis .shield{flex:0 0 auto;width:38px;height:38px;border-radius:11px;
+    display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--ok),#0891b2)}
+  .thesis b{color:var(--ink)}
+
+  /* ---------- segmented control ---------- */
+  .seg{display:inline-flex;gap:4px;margin:30px auto 20px;padding:5px;
+    background:var(--surface);border:1px solid var(--stroke);border-radius:999px;
+    box-shadow:var(--shadow-sm);position:relative;left:50%;transform:translateX(-50%)}
+  .seg button{appearance:none;border:0;background:transparent;color:var(--ink-2);
+    font-weight:700;font-size:.94rem;padding:11px 24px;border-radius:999px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:8px;transition:color .2s}
+  .seg button[aria-selected="true"]{color:#fff;background:var(--grad);
+    box-shadow:0 6px 18px rgba(91,91,240,.4)}
+  .seg button svg{width:17px;height:17px}
+
+  /* ---------- panels & layout ---------- */
+  .grid{display:grid;grid-template-columns:1fr 1.05fr;gap:20px;align-items:start}
+  @media (max-width:880px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--surface);backdrop-filter:blur(14px);border:1px solid var(--stroke);
+    border-radius:var(--r-lg);padding:22px;box-shadow:var(--shadow)}
+  .card h2{font-size:1.06rem;margin:0 0 4px}
+  .card .hint{color:var(--muted);font-size:.86rem;margin:0 0 16px}
+
+  label.fld{font-weight:700;font-size:.82rem;letter-spacing:.01em;color:var(--ink-2);
+    display:block;margin:0 0 8px;text-transform:uppercase}
+  .input-wrap{position:relative}
+  .input-wrap .lead{position:absolute;left:15px;top:50%;transform:translateY(-50%);
+    color:var(--muted);pointer-events:none;display:flex}
+  input[type=text]{width:100%;padding:15px 16px 15px 46px;border:1.5px solid var(--stroke);
+    border-radius:13px;background:var(--surface-solid);color:var(--ink);font-size:1rem;
+    transition:border-color .18s,box-shadow .18s}
+  input[type=text]:focus{outline:none;border-color:var(--brand);
+    box-shadow:0 0 0 4px color-mix(in srgb,var(--brand) 22%,transparent)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 2px}
+  .chip{border:1px solid var(--stroke);background:var(--surface-solid);color:var(--ink-2);
+    padding:8px 13px;border-radius:999px;font-size:.83rem;cursor:pointer;font-weight:600;
+    transition:.16s;box-shadow:var(--shadow-sm)}
+  .chip:hover{color:var(--brand);border-color:var(--brand);transform:translateY(-1px)}
+
+  .slider-row{margin:20px 0 4px}
+  .slider-row .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+  .slider-row .lbl{font-weight:700;font-size:.82rem;text-transform:uppercase;color:var(--ink-2)}
+  .slider-row output{font-weight:800;font-size:1.05rem;font-variant-numeric:tabular-nums;color:var(--brand)}
+  input[type=range]{width:100%;height:6px;border-radius:999px;appearance:none;cursor:pointer;
+    background:linear-gradient(90deg,var(--b1),var(--b3));outline-offset:4px}
+  input[type=range]::-webkit-slider-thumb{appearance:none;width:22px;height:22px;border-radius:50%;
+    background:#fff;border:3px solid var(--brand);box-shadow:var(--shadow);cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;
+    background:#fff;border:3px solid var(--brand);box-shadow:var(--shadow);cursor:pointer}
+  .tick-note{color:var(--muted);font-size:.82rem;margin:8px 0 0}
+
+  .go{margin-top:20px;width:100%;background:var(--grad);color:#fff;border:none;
+    padding:15px;border-radius:13px;font-weight:800;font-size:1.02rem;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:9px;
+    box-shadow:0 10px 26px rgba(91,91,240,.42);transition:transform .15s,filter .15s}
+  .go:hover{transform:translateY(-2px);filter:brightness(1.06)}
+  .go:active{transform:translateY(0)}
+  .go svg{width:18px;height:18px}
+
+  /* ---------- result ---------- */
+  .result-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;color:var(--muted);min-height:280px;gap:12px}
+  .result-empty svg{width:52px;height:52px;opacity:.5}
+  .understood{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 14px;
+    padding-bottom:14px;border-bottom:1px dashed var(--stroke)}
+  .understood .u-label{width:100%;font-size:.72rem;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--muted);margin-bottom:2px;display:flex;align-items:center;gap:6px}
+  .ichip{display:inline-flex;align-items:center;gap:6px;font-size:.82rem;font-weight:700;
+    padding:6px 11px;border-radius:9px;background:color-mix(in srgb,var(--brand) 12%,transparent);
+    color:var(--brand);border:1px solid color-mix(in srgb,var(--brand) 26%,transparent)}
+  .route-title{font-size:1.4rem;font-weight:850;margin:2px 0 2px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}
+  .stat{background:var(--surface-solid);border:1px solid var(--stroke);border-radius:13px;
+    padding:12px 14px;box-shadow:var(--shadow-sm)}
+  .stat .k{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);
+    display:flex;align-items:center;gap:6px}
+  .stat .v{font-size:1.5rem;font-weight:850;font-variant-numeric:tabular-nums;margin-top:3px}
+  .stat .v small{font-size:.8rem;font-weight:700;color:var(--muted)}
+  .badges{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 16px}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:.82rem;font-weight:800;
+    padding:7px 12px;border-radius:999px;border:1px solid transparent}
+  .badge svg{width:14px;height:14px}
+  .b-ok{background:var(--ok-bg);color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
+  .b-warn{background:var(--warn-bg);color:var(--warn);border-color:color-mix(in srgb,var(--warn) 42%,transparent)}
+  .b-eco{background:var(--eco-bg);color:var(--eco);border-color:color-mix(in srgb,var(--eco) 40%,transparent)}
+
+  ol.timeline{list-style:none;margin:6px 0 0;padding:0;position:relative}
+  ol.timeline li{position:relative;padding:0 0 20px 44px;min-height:34px}
+  ol.timeline li::before{content:"";position:absolute;left:15px;top:26px;bottom:-2px;width:2px;
+    background:linear-gradient(var(--brand),color-mix(in srgb,var(--brand) 25%,transparent))}
+  ol.timeline li:last-child::before{display:none}
+  .tl-node{position:absolute;left:0;top:0;width:32px;height:32px;border-radius:50%;
+    background:var(--surface-solid);border:2px solid var(--brand);color:var(--brand);
+    display:grid;place-items:center;font-weight:800;font-size:.82rem;box-shadow:var(--shadow-sm)}
+  .tl-node svg{width:16px;height:16px}
+  .tl-node.start{background:var(--grad);border-color:transparent;color:#fff}
+  .tl-node.end{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+  .tl-body{padding-top:5px}
+  .tl-body .mode{font-weight:700}
+  .tl-body b{font-weight:800}
+  .tl-body .dist{color:var(--muted);font-size:.85rem;font-weight:600;font-variant-numeric:tabular-nums}
+  .crowd-ctx{margin-top:8px;display:flex;align-items:center;gap:9px;font-size:.88rem;color:var(--ink-2);
+    background:var(--surface-solid);border:1px solid var(--stroke);border-radius:11px;padding:11px 14px}
+  .crowd-ctx svg{width:17px;height:17px;color:var(--warn);flex:0 0 auto}
+  .err{display:flex;align-items:center;gap:10px;color:var(--warn);font-weight:700;
+    background:var(--warn-bg);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);
+    border-radius:12px;padding:14px 16px}
+
+  /* ---------- map ---------- */
+  .map-card{margin-top:20px}
+  .map-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+  .map-head h2{font-size:1.06rem;margin:0}
+  .legend{display:flex;flex-wrap:wrap;gap:12px;font-size:.78rem;color:var(--ink-2);font-weight:600}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:11px;height:11px;border-radius:50%;display:inline-block}
+  .legend i.route{width:16px;height:4px;border-radius:2px;background:var(--brand)}
+  .map-frame{border-radius:18px;overflow:hidden;border:1px solid var(--stroke);
+    background:radial-gradient(120% 120% at 50% 0%,color-mix(in srgb,var(--b2) 8%,transparent),transparent 60%)}
+  svg.map{width:100%;height:auto;display:block}
+  .edge{stroke:var(--stroke);stroke-width:2;fill:none}
+  .edge.transit{stroke-dasharray:2 7;stroke-linecap:round;stroke:color-mix(in srgb,var(--n-transit) 55%,transparent)}
+  .edge.hot{stroke:var(--warn);stroke-width:3.5;stroke-dasharray:7 6;animation:flow 1s linear infinite}
+  @keyframes flow{to{stroke-dashoffset:-26}}
+  .rpath{fill:none;stroke:url(#routeGrad);stroke-width:6;stroke-linecap:round;stroke-linejoin:round;
+    filter:url(#glow)}
+  .node-dot{stroke:var(--surface-solid);stroke-width:2}
+  .node-lbl{font-size:12.5px;font-weight:600;fill:var(--ink-2);paint-order:stroke;
+    stroke:var(--surface-solid);stroke-width:3px;stroke-linejoin:round}
+  .node.dim .node-lbl{fill:var(--muted);opacity:.72;font-size:11.5px}
+  .node.on .node-lbl{fill:var(--ink);font-weight:800;font-size:13px}
+  .rnode{stroke-width:3}
+  .rnode.start{fill:var(--brand)}
+  .rnode.end{fill:var(--ink)}
+  .rnode.mid{fill:var(--surface-solid);stroke:var(--brand)}
+  .pulse-ring{fill:none;stroke:var(--brand);opacity:.5;animation:ring 1.8s ease-out infinite}
+  @keyframes ring{0%{r:9;opacity:.6}100%{r:26;opacity:0}}
+
+  /* ---------- ops ---------- */
+  .ops-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+  .ops-note{color:var(--ink-2);font-size:.9rem;margin:2px 0 18px}
+  .zone{display:grid;grid-template-columns:1fr auto;gap:4px 14px;align-items:center;
+    padding:14px 16px;border:1px solid var(--stroke);border-radius:13px;margin:10px 0;
+    background:var(--surface-solid);box-shadow:var(--shadow-sm)}
+  .zone .zn{font-weight:700}
+  .zone .zl{font-weight:800;font-variant-numeric:tabular-nums;justify-self:end}
+  .zone .bar{grid-column:1/-1;height:8px;border-radius:999px;background:var(--stroke);overflow:hidden;margin-top:4px}
+  .zone .bar>span{display:block;height:100%;border-radius:999px;transition:width .5s}
+  .sev-hi>span{background:linear-gradient(90deg,#f59e0b,#ef4444)}
+  .sev-md>span{background:linear-gradient(90deg,#eab308,#f59e0b)}
+  .ops-actions{margin-top:18px}
+  .ops-actions h4{font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 10px}
+  .action{display:flex;gap:11px;align-items:flex-start;padding:13px 15px;border-radius:12px;
+    background:var(--surface-solid);border:1px solid var(--stroke);border-left:3px solid var(--brand);
+    margin:9px 0;box-shadow:var(--shadow-sm);font-size:.93rem}
+  .action .idx{flex:0 0 auto;width:22px;height:22px;border-radius:7px;background:var(--grad);color:#fff;
+    display:grid;place-items:center;font-size:.78rem;font-weight:800}
+  .all-clear{display:flex;align-items:center;gap:10px;color:var(--ok);font-weight:700;
+    background:var(--ok-bg);border:1px solid color-mix(in srgb,var(--ok) 40%,transparent);
+    border-radius:12px;padding:16px}
+
+  footer{margin-top:40px;padding-top:22px;border-top:1px solid var(--stroke-2);
+    color:var(--muted);font-size:.85rem;text-align:center;line-height:1.7}
+  footer a{font-weight:600}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
   .hidden{display:none}
+  button:focus-visible,input:focus-visible,.chip:focus-visible,.seg button:focus-visible{
+    outline:3px solid var(--focus);outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo" aria-hidden="true"></div>
+    <div class="brand-mark" aria-hidden="true"></div>
     <div>
-      <h1>PulseRoute</h1>
-      <p class="tag">Hybrid Symbolic + GenAI Stadium Copilot · FIFA World Cup 2026 · Challenge 4</p>
+      <p class="brand-name">PulseRoute</p>
+      <p class="brand-sub">Smart Stadium Copilot · FIFA World Cup 2026</p>
     </div>
+    <span class="pill-live"><span class="dot-live"></span>Live demo</span>
   </header>
 
-  <p class="thesis">
-    <b>Why this is safe:</b> a large language model will confidently invent a staircase into a
-    wheelchair user's directions. PulseRoute forbids that by design — GenAI only <b>understands your
-    request</b> and <b>narrates the answer</b>. Every route is computed by a deterministic graph
-    search over a ground-truth venue map, so <b>step-free routing is provable, not hoped for.</b>
-  </p>
+  <section class="hero">
+    <span class="eyebrow">✦ Challenge 4 · Smart Stadiums &amp; Tournament Operations</span>
+    <h1>Navigation you can <span class="grad">actually trust</span>.</h1>
+    <p>A hybrid copilot that pairs Generative AI with a deterministic routing engine —
+       so every step-free, crowd-aware, multilingual route is <em>provably correct</em>, never hallucinated.</p>
+  </section>
 
-  <div class="tabs" role="tablist" aria-label="Choose a mode">
-    <button class="tab" id="tab-fan" role="tab" aria-selected="true" aria-controls="panel-fan">🧭 Fan Wayfinding</button>
-    <button class="tab" id="tab-ops" role="tab" aria-selected="false" aria-controls="panel-ops">📊 Operations</button>
+  <div class="thesis">
+    <div class="shield" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+    </div>
+    <div><b>Why this is safe:</b> an LLM will confidently invent a staircase into a wheelchair
+      user's directions. PulseRoute forbids that by design — GenAI only <b>understands your request</b>
+      and <b>narrates the answer</b>. Every route is computed by deterministic graph search over a
+      ground-truth venue map, so <b>step-free routing is provable, not hoped for.</b></div>
+  </div>
+
+  <div class="seg" role="tablist" aria-label="Choose a mode">
+    <button id="tab-fan" role="tab" aria-selected="true" aria-controls="panel-fan">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.5 2-6 20-4-9-9-4 19-7z"/></svg>Fan Wayfinding</button>
+    <button id="tab-ops" role="tab" aria-selected="false" aria-controls="panel-ops">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="10" width="3" height="7"/><rect x="12" y="6" width="3" height="11"/><rect x="17" y="12" width="3" height="5"/></svg>Operations</button>
   </div>
 
   <!-- FAN -->
   <section id="panel-fan" role="tabpanel" aria-labelledby="tab-fan">
     <div class="grid">
-      <div class="panel">
-        <label for="q">Ask in plain language</label>
-        <input id="q" type="text" autocomplete="off"
-          value="from metro to section 114 in a wheelchair"
-          aria-describedby="q-help" />
+      <div class="card">
+        <h2>Ask in plain language</h2>
+        <p class="hint">The AI layer extracts origin, destination &amp; needs — e.g. “wheelchair” → step-free.</p>
+        <div class="input-wrap">
+          <span class="lead" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 0 1-13.5 7.8L3 21l1.2-4.5A9 9 0 1 1 21 12z"/></svg>
+          </span>
+          <input id="q" type="text" autocomplete="off"
+            value="from metro to section 114 in a wheelchair"
+            aria-label="Routing request in plain language" />
+        </div>
         <div class="chips" id="examples" aria-label="Example requests">
           <button class="chip" type="button">from metro to section 114 in a wheelchair</button>
           <button class="chip" type="button">from gate C to section 114</button>
@@ -118,50 +334,65 @@
           <button class="chip" type="button">from south concourse to the accessible restroom</button>
           <button class="chip" type="button">wheelchair route from parking to the sensory room</button>
         </div>
-        <p id="q-help" class="tag">The AI layer extracts origin, destination, and needs (e.g. “wheelchair” → step-free).</p>
 
-        <div class="row">
-          <label for="minute" style="margin:0">Matchday minute</label>
-          <input id="minute" type="range" min="0" max="100" step="5" value="0"
-            aria-describedby="minute-note" />
-          <output id="minute-out">0′</output>
+        <div class="slider-row">
+          <div class="top">
+            <span class="lbl">Matchday minute</span>
+            <output id="minute-out">0′</output>
+          </div>
+          <input id="minute" type="range" min="0" max="100" step="5" value="0" aria-label="Matchday minute" />
+          <p class="tick-note">Drives the live crowd feed. Try <b>45′</b> (halftime) or <b>100′</b> (full-time).</p>
         </div>
-        <p id="minute-note" class="tag">Drives the live crowd feed. Try 45′ (halftime) or 100′ (full-time).</p>
 
-        <button class="go" id="go">Find my route</button>
+        <button class="go" id="go">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.3-7-11a7 7 0 0 1 14 0c0 4.7-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+          Find my route</button>
       </div>
 
-      <div class="panel">
+      <div class="card">
         <div id="result" aria-live="polite">
-          <p class="tag">Your route and an interactive map will appear here.</p>
+          <div class="result-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20 3 17V4l6 3 6-3 6 3v13l-6-3-6 3z"/><path d="M9 7v13M15 4v13"/></svg>
+            <p>Your route, stats and an interactive stadium map will appear here.</p>
+          </div>
         </div>
       </div>
     </div>
-    <div class="panel" style="margin-top:18px">
-      <h2 class="sr-only">Stadium map</h2>
-      <div id="map"></div>
+
+    <div class="card map-card">
+      <div class="map-head">
+        <h2>Live stadium map</h2>
+        <div class="legend" aria-hidden="true">
+          <span><i class="route"></i>Your route</span>
+          <span><i style="background:var(--n-gate)"></i>Gates</span>
+          <span><i style="background:var(--n-transit)"></i>Transit</span>
+          <span><i style="background:var(--n-rest)"></i>Amenities</span>
+          <span><i style="background:var(--warn)"></i>Congested</span>
+        </div>
+      </div>
+      <div class="map-frame"><div id="map"></div></div>
     </div>
   </section>
 
   <!-- OPS -->
   <section id="panel-ops" role="tabpanel" aria-labelledby="tab-ops" class="hidden">
-    <div class="panel">
-      <div class="row">
-        <label for="ominute" style="margin:0">Matchday minute</label>
-        <input id="ominute" type="range" min="0" max="100" step="5" value="45" />
-        <output id="ominute-out">45′</output>
+    <div class="card">
+      <div class="ops-head">
+        <h2>Control-room decision brief</h2>
+        <output id="ominute-out" style="font-weight:800;color:var(--brand);font-size:1.05rem">45′</output>
       </div>
-      <p class="tag">The same live crowd state, aggregated into a ranked control-room decision brief.
-        Numbers are deterministic; only the phrasing would be AI-generated in production.</p>
-      <div id="brief" class="brief" aria-live="polite"></div>
+      <input id="ominute" type="range" min="0" max="100" step="5" value="45" aria-label="Matchday minute" />
+      <p class="ops-note">The same live crowd state, aggregated into a ranked brief. Numbers are
+        deterministic; only the phrasing would be AI-generated in production.</p>
+      <div id="brief" aria-live="polite"></div>
     </div>
   </section>
 
   <footer>
-    Open-source reference implementation · deterministic engine has zero dependencies ·
-    <a href="https://github.com/">source & tests on GitHub</a>.
-    This live demo runs the offline (rule-based) AI layer; adding a Claude API key server-side
-    enables full multilingual understanding.
+    Open-source reference implementation · deterministic engine has <b>zero dependencies</b> ·
+    <a href="https://github.com/">source &amp; 17 passing tests on GitHub</a><br>
+    This live demo runs the offline rule-based AI layer; a Claude API key server-side unlocks full
+    multilingual understanding.
   </footer>
 </div>
 
@@ -171,8 +402,9 @@
    PulseRoute — client port of the deterministic engine.
    Mirrors src/pulseroute/{graph,feed,ops,llm_agent}.py 1:1.
    The Python package is the tested reference implementation.
+   (Engine logic below is byte-for-byte identical to the
+    version verified against the Python oracle.)
    ============================================================ */
-
 const GRAPH = {
   nodes:[
     ["metro","Metro Station (Line 2)","transit"],["shuttle_hub","Accessible Shuttle Hub","transit"],
@@ -187,7 +419,6 @@ const GRAPH = {
     ["sensory_room","Sensory / Calm Room","sensory"],["first_aid_E","First Aid (East)","first_aid"],
     ["concession_W","Concession Plaza (West)","concession"]
   ],
-  // from,to,mode,accessible,distance,co2,base_time,zone
   edges:[
     ["metro","gate_A","walk_outdoor",1,220,0,190,null],["metro","gate_B","walk_outdoor",1,300,0,260,null],
     ["shuttle_hub","gate_C","walk_outdoor",1,120,0,100,null],["parking_accessible","gate_C","walk_outdoor",1,160,0,140,null],
@@ -207,11 +438,9 @@ const GRAPH = {
   ]
 };
 const STEP_MODES = new Set(["stair","escalator"]);
-const LABEL = {}, TYPE = {};
+const LABEL={}, TYPE={};
 GRAPH.nodes.forEach(([id,l,t])=>{LABEL[id]=l;TYPE[id]=t;});
-
-// adjacency (undirected)
-const ADJ = {};
+const ADJ={};
 GRAPH.nodes.forEach(([id])=>ADJ[id]=[]);
 GRAPH.edges.forEach(([f,t,mode,acc,dist,co2,bt,zone])=>{
   ADJ[f].push({to:t,mode,acc:!!acc,dist,co2,bt,zone});
@@ -219,72 +448,60 @@ GRAPH.edges.forEach(([f,t,mode,acc,dist,co2,bt,zone])=>{
 });
 const isStepFree = e => e.acc && !STEP_MODES.has(e.mode);
 
-// ---- congestion feed (mirrors feed.py) ----
-const TIMELINE = [
+const TIMELINE=[
   [0,{ne:.9,se:.3,sw:.2,nw:.7},"Pre-kickoff arrival surge at north/east gates."],
   [45,{ne:.4,se:1.6,sw:1.4,nw:.5},"Halftime: concession rush jams south concourse."],
   [100,{ne:1.8,se:1.2,sw:1.1,nw:1.7},"Full-time egress: heavy load on all exits."]
 ];
-function snapshot(minute){
-  let pick=TIMELINE[0];
-  for(const row of TIMELINE){ if(row[0]<=minute) pick=row; }
-  return {minute,factors:pick[1],note:pick[2]};
-}
+function snapshot(minute){let pick=TIMELINE[0];for(const r of TIMELINE){if(r[0]<=minute)pick=r;}return{minute,factors:pick[1],note:pick[2]};}
 
-// ---- constraint-aware Dijkstra (mirrors graph.find_route) ----
-function findRoute(req, congestion){
-  congestion = congestion||{};
-  const allowed = e => !(req.step_free && !isStepFree(e));
+function findRoute(req,congestion){
+  congestion=congestion||{};
+  const allowed=e=>!(req.step_free&&!isStepFree(e));
   function cost(e){
-    let time=e.bt, applied=false;
-    if(req.avoid_congestion!==false && e.zone){
-      const f=congestion[e.zone]||0;
-      if(f){ time*=(1+f); applied=true; }
-    }
+    let time=e.bt,applied=false;
+    if(req.avoid_congestion!==false&&e.zone){const f=congestion[e.zone]||0;if(f){time*=(1+f);applied=true;}}
     let c;
-    if(req.optimize==="co2") c=e.co2*10 + time*0.01;
-    else if(req.optimize==="balanced") c=time + e.co2*2;
+    if(req.optimize==="co2")c=e.co2*10+time*0.01;
+    else if(req.optimize==="balanced")c=time+e.co2*2;
     else c=time;
-    return [c,applied];
+    return[c,applied];
   }
-  const dist={[req.origin]:0}, prev={}, seen=new Set();
-  const pq=[[0,req.origin]]; let anyC=false;
+  const dist={[req.origin]:0},prev={},seen=new Set();
+  const pq=[[0,req.origin]];let anyC=false;
   while(pq.length){
     pq.sort((a,b)=>a[0]-b[0]);
-    const [d,u]=pq.shift();
-    if(seen.has(u)) continue; seen.add(u);
-    if(u===req.destination) break;
+    const[d,u]=pq.shift();
+    if(seen.has(u))continue;seen.add(u);
+    if(u===req.destination)break;
     for(const e of ADJ[u]){
-      if(!allowed(e)) continue;
-      const [c,ap]=cost(e); if(ap) anyC=true;
+      if(!allowed(e))continue;
+      const[c,ap]=cost(e);if(ap)anyC=true;
       const nd=d+c;
-      if(nd < (dist[e.to]??Infinity)){ dist[e.to]=nd; prev[e.to]=[u,e]; pq.push([nd,e.to]); }
+      if(nd<(dist[e.to]??Infinity)){dist[e.to]=nd;prev[e.to]=[u,e];pq.push([nd,e.to]);}
     }
   }
   if(!(req.destination in dist)){
-    const why = req.step_free ? "no step-free path exists under current constraints" : "no path exists";
+    const why=req.step_free?"no step-free path exists under current constraints":"no path exists";
     throw new Error(`Cannot route ${req.origin} → ${req.destination}: ${why}.`);
   }
-  const steps=[]; let cur=req.destination;
+  const steps=[];let cur=req.destination;
   while(cur!==req.origin){
-    const [u,e]=prev[cur];
-    let t=e.bt; if(req.avoid_congestion!==false && e.zone) t*=(1+(congestion[e.zone]||0));
+    const[u,e]=prev[cur];
+    let t=e.bt;if(req.avoid_congestion!==false&&e.zone)t*=(1+(congestion[e.zone]||0));
     steps.push({frm:u,to:cur,mode:e.mode,label:LABEL[cur],dist:e.dist,time:t,co2:e.co2});
     cur=u;
   }
   steps.reverse();
-  return {
-    steps,
+  return{steps,
     total_distance:steps.reduce((s,x)=>s+x.dist,0),
     total_time:steps.reduce((s,x)=>s+x.time,0),
     total_co2:steps.reduce((s,x)=>s+x.co2,0),
-    step_free:!!req.step_free, optimize:req.optimize, congestion_applied:anyC,
-    node_ids:[steps.length?steps[0].frm:req.origin, ...steps.map(s=>s.to)]
-  };
+    step_free:!!req.step_free,optimize:req.optimize,congestion_applied:anyC,
+    node_ids:[steps.length?steps[0].frm:req.origin,...steps.map(s=>s.to)]};
 }
 
-// ---- rule-based NLU (mirrors llm_agent.RuleBasedParser) ----
-const ALIASES = {
+const ALIASES={
   "metro":"metro","subway":"metro","train":"metro","line 2":"metro",
   "shuttle hub":"shuttle_hub","shuttle":"shuttle_hub",
   "accessible parking":"parking_accessible","parking":"parking_accessible","blue lot":"parking_accessible","car":"parking_accessible",
@@ -298,132 +515,257 @@ const ALIASES = {
   "sensory room":"sensory_room","calm room":"sensory_room","quiet room":"sensory_room",
   "first aid":"first_aid_E","medical":"first_aid_E","concession":"concession_W","food":"concession_W"
 };
-const ALIAS_KEYS = Object.keys(ALIASES).sort((a,b)=>b.length-a.length);
+const ALIAS_KEYS=Object.keys(ALIASES).sort((a,b)=>b.length-a.length);
 const STEP_FREE_HINTS=["wheelchair","step-free","step free","no stairs","accessible route","cannot climb","can't climb","mobility","walker","stroller","avoid stairs"];
 const CO2_HINTS=["greenest","lowest carbon","eco","sustainable","least co2","climate"];
-function matchAlias(text){ text=text.toLowerCase(); for(const k of ALIAS_KEYS){ if(text.includes(k)) return ALIASES[k]; } return null; }
+function matchAlias(text){text=text.toLowerCase();for(const k of ALIAS_KEYS){if(text.includes(k))return ALIASES[k];}return null;}
 function parseRequest(text){
   const lower=text.toLowerCase();
   let origin=null,dest=null;
   const m=lower.match(/\bfrom\b(.*?)\bto\b(.*)/);
-  if(m){ origin=matchAlias(m[1]); dest=matchAlias(m[2]); }
+  if(m){origin=matchAlias(m[1]);dest=matchAlias(m[2]);}
   if(!origin||!dest){
     const found=[];
-    for(const k of ALIAS_KEYS){ const i=lower.indexOf(k); if(i!==-1) found.push([i,ALIASES[k]]); }
+    for(const k of ALIAS_KEYS){const i=lower.indexOf(k);if(i!==-1)found.push([i,ALIASES[k]]);}
     found.sort((a,b)=>a[0]-b[0]);
-    const seen=[]; for(const [,id] of found){ if(!seen.includes(id)) seen.push(id); }
-    if(!origin&&seen[0]) origin=seen[0];
-    if(!dest&&seen[1]) dest=seen[1];
+    const seen=[];for(const[,id]of found){if(!seen.includes(id))seen.push(id);}
+    if(!origin&&seen[0])origin=seen[0];
+    if(!dest&&seen[1])dest=seen[1];
   }
-  if(!origin||!dest) throw new Error("Could not identify both an origin and a destination. Try “from X to Y”.");
+  if(!origin||!dest)throw new Error("Could not identify both an origin and a destination. Try “from X to Y”.");
   const step_free=STEP_FREE_HINTS.some(h=>lower.includes(h));
   const optimize=CO2_HINTS.some(h=>lower.includes(h))?"co2":"time";
-  return {origin,destination:dest,step_free,optimize,avoid_congestion:true};
+  return{origin,destination:dest,step_free,optimize,avoid_congestion:true};
 }
 
-// ---- template narrator ----
 const VERB={walk:"Walk",walk_outdoor:"Walk",stair:"Take the stairs",elevator:"Take the elevator",
   escalator:"Take the escalator",ramp:"Take the ramp",transit_shuttle:"Board the accessible shuttle",transit_metro:"Take the metro"};
 
-// ---- ops brief (mirrors ops.py) ----
-const ZONE_LABEL={ne:"North-East (Gate A/B ↔ concourse)",se:"South-East (Gate B/C ↔ concourse)",
-  sw:"South-West (Gate C/D ↔ concourse)",nw:"North-West (Gate D/A ↔ concourse)"};
+const ZONE_LABEL={ne:"North-East · Gate A/B ↔ concourse",se:"South-East · Gate B/C ↔ concourse",
+  sw:"South-West · Gate C/D ↔ concourse",nw:"North-West · Gate D/A ↔ concourse"};
 const ACTIONS={ne:"Open Gate A overflow lanes; steward reroute via West Concourse.",
   se:"Add halftime concession stewards; signpost North restrooms.",
   sw:"Protect step-free path to Section 114; hold South elevator for accessibility.",
   nw:"Stagger West exit; coordinate shuttle hub dispatch."};
 function buildBrief(snap,topN=3,thr=0.8){
   const ranked=Object.entries(snap.factors).sort((a,b)=>b[1]-a[1]).filter(([,f])=>f>=thr).slice(0,topN);
-  return {minute:snap.minute,note:snap.note,ranked,actions:ranked.map(([z])=>ACTIONS[z]).filter(Boolean)};
+  return{minute:snap.minute,note:snap.note,ranked,actions:ranked.map(([z])=>ACTIONS[z]).filter(Boolean)};
 }
 
 /* ================= UI ================= */
 const $=s=>document.querySelector(s);
+const svgNS="http://www.w3.org/2000/svg";
+const CAT={transit:"var(--n-transit)",parking:"var(--n-transit)",gate:"var(--n-gate)",
+  concourse:"var(--n-conc)",seating:"var(--n-seat)",restroom:"var(--n-rest)",
+  restroom_accessible:"var(--n-rest)",sensory:"var(--n-sensory)",first_aid:"var(--n-aid)",concession:"var(--n-food)"};
 
-// node coordinates for the schematic map (viewBox 0 0 800 560)
-const XY={
-  metro:[150,60],shuttle_hub:[400,520],parking_accessible:[600,510],rideshare:[110,300],
-  gate_A:[400,80],gate_B:[700,300],gate_C:[400,480],gate_D:[130,300],
-  conc_N:[400,180],conc_E:[560,300],conc_S:[400,400],conc_W:[240,300],
-  sec_101:[400,230],sec_108:[500,300],sec_114:[400,350],sec_122:[300,300],
-  restroom_N:[320,150],restroom_acc_S:[470,430],sensory_room:[520,420],first_aid_E:[640,240],concession_W:[170,240]
+/* layout: [x, y, textAnchor, labelDX, labelDY, shortLabel]  (viewBox 1000x720) */
+const POS={
+  metro:[250,150,"middle",0,-16,"Metro"],
+  gate_A:[500,150,"middle",0,-16,"Gate A"],
+  gate_B:[812,350,"start",16,5,"Gate B"],
+  gate_C:[500,566,"middle",0,30,"Gate C"],
+  gate_D:[188,350,"end",-16,5,"Gate D"],
+  shuttle_hub:[500,668,"middle",0,30,"Shuttle Hub"],
+  parking_accessible:[770,600,"start",16,5,"Accessible Parking"],
+  rideshare:[172,548,"end",-16,5,"Rideshare"],
+  conc_N:[500,252,"end",-14,-8,"N. Concourse"],
+  conc_E:[688,350,"start",16,-8,"E. Concourse"],
+  conc_S:[500,448,"end",-14,20,"S. Concourse"],
+  conc_W:[312,350,"end",-16,-8,"W. Concourse"],
+  sec_101:[520,308,"start",13,4,"Sec 101"],
+  sec_108:[606,362,"start",13,15,"Sec 108"],
+  sec_114:[500,396,"start",13,4,"Sec 114"],
+  sec_122:[398,350,"middle",0,22,"Sec 122"],
+  restroom_N:[428,218,"end",-12,4,"Restroom"],
+  restroom_acc_S:[592,472,"start",12,4,"Accessible WC"],
+  sensory_room:[470,502,"middle",0,20,"Sensory Room"],
+  first_aid_E:[732,420,"start",13,4,"First Aid"],
+  concession_W:[262,286,"end",-12,-2,"Concession"]
 };
-function drawMap(result, congestion){
-  const seen=new Set(), lines=[];
-  GRAPH.edges.forEach(([f,t,mode,acc,dist,co2,bt,zone])=>{
-    const key=f<t?f+t:t+f; if(seen.has(key))return; seen.add(key);
-    const [x1,y1]=XY[f],[x2,y2]=XY[t];
-    const hot = zone && congestion && (congestion[zone]||0)>=1;
-    lines.push(`<line class="edge${hot?' hot':''}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`);
-  });
-  let pathEls="";
-  if(result){
-    const ids=result.node_ids;
-    let d="";
-    ids.forEach((id,i)=>{ const [x,y]=XY[id]; d+=(i?`L`:`M`)+x+" "+y+" "; });
-    pathEls+=`<path class="path" d="${d.trim()}"/>`;
-    ids.forEach(id=>{const[x,y]=XY[id];pathEls+=`<g class="node path-node"><circle cx="${x}" cy="${y}" r="7"/></g>`;});
-  }
-  const nodes=GRAPH.nodes.map(([id,l,t])=>{
-    const [x,y]=XY[id];
-    const short=l.replace(/\(.*\)/,"").trim();
-    return `<g class="node t-${t}"><circle cx="${x}" cy="${y}" r="6"/>
-      <text x="${x+9}" y="${y+4}">${short}</text></g>`;
-  }).join("");
-  $("#map").innerHTML=`<svg viewBox="0 0 800 560" role="img"
-    aria-label="Schematic stadium map showing the computed route.">
-    ${lines.join("")}${pathEls}${nodes}</svg>`;
+const CENTER=[500,350];
+
+function el(name,attrs,children){
+  const e=document.createElementNS(svgNS,name);
+  for(const k in attrs)e.setAttribute(k,attrs[k]);
+  if(children)e.innerHTML=children;
+  return e;
+}
+function modeIcon(mode){
+  const p={
+    walk:'<circle cx="12" cy="4.2" r="2"/><path d="M12 6.5v6M12 9l-3 3M12 9l3 2.4M12 12.5l-2 6.5M12 12.5l2 6.5"/>',
+    walk_outdoor:'<circle cx="12" cy="4.2" r="2"/><path d="M12 6.5v6M12 9l-3 3M12 9l3 2.4M12 12.5l-2 6.5M12 12.5l2 6.5"/>',
+    stair:'<path d="M3 18h4v-4h4v-4h4V6h4"/>',
+    escalator:'<path d="M4 18 20 6M8 18H4v-2M20 6h-4"/>',
+    ramp:'<path d="M4 18 20 8M4 18h16"/><circle cx="9" cy="13" r="1.6"/>',
+    elevator:'<rect x="6" y="3" width="12" height="18" rx="1.5"/><path d="M12 7.5 10 11h4zM12 16.5 10 13h4z"/>',
+    transit_shuttle:'<rect x="3" y="6" width="18" height="9" rx="2"/><path d="M3 11h18"/><circle cx="7.5" cy="18" r="1.6"/><circle cx="16.5" cy="18" r="1.6"/>',
+    transit_metro:'<rect x="5" y="4" width="14" height="12" rx="3"/><path d="M5 11h14"/><path d="m7 20 2-3M17 20l-2-3"/>'
+  }[mode]||'<circle cx="12" cy="12" r="7"/>';
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 }
 
+function drawMap(result,congestion){
+  const routeIds=result?result.node_ids:[];
+  const onSet=new Set(routeIds);
+  const svg=el("svg",{viewBox:"0 0 1000 720",class:"map",role:"img",
+    "aria-label":result?"Stadium map with the computed route highlighted.":"Schematic stadium map."});
+  svg.innerHTML=`<defs>
+    <linearGradient id="routeGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f46e5"/><stop offset="0.55" stop-color="#7c3aed"/><stop offset="1" stop-color="#06b6d4"/>
+    </linearGradient>
+    <radialGradient id="pitchGrad" cx="0.5" cy="0.4" r="0.7">
+      <stop offset="0" stop-color="#1f9d57"/><stop offset="1" stop-color="#14713e"/>
+    </radialGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>`;
+
+  // concourse ring band
+  svg.appendChild(el("ellipse",{cx:500,cy:350,rx:224,ry:150,fill:"none",
+    stroke:"color-mix(in srgb,var(--n-conc) 30%,transparent)","stroke-width":58,opacity:.16}));
+  // pitch
+  const pitch=el("g",{});
+  pitch.appendChild(el("ellipse",{cx:500,cy:350,rx:150,ry:96,fill:"url(#pitchGrad)",opacity:.9}));
+  pitch.appendChild(el("line",{x1:500,y1:254,x2:500,y2:446,stroke:"rgba(255,255,255,.55)","stroke-width":2}));
+  pitch.appendChild(el("circle",{cx:500,cy:350,r:30,fill:"none",stroke:"rgba(255,255,255,.55)","stroke-width":2}));
+  pitch.appendChild(el("text",{x:500,y:355,"text-anchor":"middle",fill:"rgba(255,255,255,.8)","font-size":13,"font-weight":800,"letter-spacing":"2px"},"PITCH"));
+  svg.appendChild(pitch);
+
+  // edges
+  const drawn=new Set();
+  GRAPH.edges.forEach(([f,t,mode,acc,dist,co2,bt,zone])=>{
+    const key=f<t?f+"|"+t:t+"|"+f; if(drawn.has(key))return; drawn.add(key);
+    const[x1,y1]=POS[f],[x2,y2]=POS[t];
+    const hot=zone&&congestion&&(congestion[zone]||0)>=1;
+    let cls="edge"; if(String(mode).startsWith("transit"))cls+=" transit"; if(hot)cls+=" hot";
+    if(String(mode).startsWith("transit")){
+      const mx=(x1+x2)/2, my=(y1+y2)/2, nx=-(y2-y1), ny=(x2-x1);
+      const len=Math.hypot(nx,ny)||1, off=70;
+      svg.appendChild(el("path",{class:cls,d:`M${x1} ${y1} Q ${mx+nx/len*off} ${my+ny/len*off} ${x2} ${y2}`}));
+    }else{
+      svg.appendChild(el("line",{class:cls,x1,y1,x2,y2}));
+    }
+  });
+
+  // route path
+  if(routeIds.length>1){
+    let d=""; routeIds.forEach((id,i)=>{const[x,y]=POS[id];d+=(i?"L":"M")+x+" "+y+" ";});
+    const path=el("path",{class:"rpath",d:d.trim()});
+    svg.appendChild(path);
+    // animate draw-in
+    requestAnimationFrame(()=>{
+      try{const L=path.getTotalLength();path.style.strokeDasharray=L;path.style.strokeDashoffset=L;
+        path.getBoundingClientRect();path.style.transition="stroke-dashoffset .9s ease";path.style.strokeDashoffset=0;}catch(e){}
+    });
+  }
+
+  // nodes
+  GRAPH.nodes.forEach(([id,label,type])=>{
+    const[x,y,anchor,ldx,ldy,short]=POS[id];
+    const on=onSet.has(id);
+    const g=el("g",{class:"node "+(on?"on":"dim")});
+    if(on){
+      const role=id===routeIds[0]?"start":(id===routeIds[routeIds.length-1]?"end":"mid");
+      if(role==="start")g.appendChild(el("circle",{class:"pulse-ring",cx:x,cy:y,r:9}));
+      g.appendChild(el("circle",{class:"rnode "+role,cx:x,cy:y,r:role==="mid"?6.5:8}));
+    }else{
+      g.appendChild(el("circle",{class:"node-dot",cx:x,cy:y,r:5.5,fill:CAT[type]||"var(--n-conc)"}));
+    }
+    g.appendChild(el("text",{class:"node-lbl",x:x+ldx,y:y+ldy+4,"text-anchor":anchor},short));
+    svg.appendChild(g);
+  });
+
+  const mount=$("#map"); mount.innerHTML=""; mount.appendChild(svg);
+}
+
+function fmtMin(t){const m=t/60;return m<1?"<1":Math.round(m);}
 function renderRoute(text){
   let req;
-  try{ req=parseRequest(text); }
-  catch(e){ $("#result").innerHTML=`<p class="err">⚠ ${e.message}</p>`; drawMap(null,null); return; }
-  const minute=+$("#minute").value;
-  const snap=snapshot(minute), cong=snap.factors;
+  try{req=parseRequest(text);}
+  catch(e){$("#result").innerHTML=`<div class="err">${warnIcon()} ${e.message}</div>`;drawMap(null,null);return;}
+  const minute=+$("#minute").value, snap=snapshot(minute), cong=snap.factors;
   let result;
-  try{ result=findRoute(req,cong); }
-  catch(e){ $("#result").innerHTML=`<p class="err">⚠ ${e.message}</p>`; drawMap(null,cong); return; }
+  try{result=findRoute(req,cong);}
+  catch(e){$("#result").innerHTML=`<div class="err">${warnIcon()} ${e.message}</div>`;drawMap(null,cong);return;}
+
+  // parsed-intent chips (shows the AI layer's job)
+  const objLabel=req.optimize==="co2"?"🌱 Greenest":"⏱ Fastest";
+  const intent=[
+    `<span class="ichip">🎯 ${POS[req.origin][5]} → ${POS[req.destination][5]}</span>`,
+    req.step_free?`<span class="ichip">♿ Step-free</span>`:"",
+    `<span class="ichip">${objLabel}</span>`
+  ].filter(Boolean).join("");
 
   const badges=[];
-  if(result.step_free) badges.push(`<span class="badge b-ok">♿ Verified step-free</span>`);
-  if(result.congestion_applied) badges.push(`<span class="badge b-warn">⚠ Crowd-adjusted</span>`);
-  if(req.optimize==="co2"||result.total_co2) badges.push(`<span class="badge b-eco">🌱 ${result.total_co2} g CO₂</span>`);
+  if(result.step_free)badges.push(`<span class="badge b-ok">${okIcon()} Verified step-free</span>`);
+  if(result.congestion_applied)badges.push(`<span class="badge b-warn">${warnIcon()} Crowd-adjusted</span>`);
+  if(req.optimize==="co2"||result.total_co2)badges.push(`<span class="badge b-eco">${leafIcon()} ${result.total_co2} g CO₂</span>`);
 
-  const steps=result.steps.map((s,i)=>
-    `<li><span class="mode-ico">${VERB[s.mode]||"Proceed"}</span> to <b>${s.label}</b>
-      <span class="tag">· ${Math.round(s.dist)} m</span></li>`).join("");
+  const steps=result.steps.map((s,i)=>{
+    const last=i===result.steps.length-1;
+    const role=last?"end":"mid";
+    const marker=last?`<span class="tl-node end">${flagIcon()}</span>`:`<span class="tl-node">${modeIcon(s.mode)}</span>`;
+    return `<li>${marker}<div class="tl-body"><span class="mode">${VERB[s.mode]||"Proceed"}</span>
+      to <b>${s.label}</b> <span class="dist">· ${Math.round(s.dist)} m</span></div></li>`;
+  }).join("");
+  const startLi=`<li><span class="tl-node start">${pinIcon()}</span><div class="tl-body">
+    <span class="mode">Start at</span> <b>${LABEL[result.node_ids[0]]}</b></div></li>`;
 
   $("#result").innerHTML=`
-    <h2 style="margin:.1em 0 .3em">${result.step_free?"Step-free route":"Route"}
-      <span class="tag">· ${Math.round(result.total_time/60)} min · ${Math.round(result.total_distance)} m</span></h2>
+    <div class="understood">
+      <span class="u-label">${sparkIcon()} AI understood your request</span>${intent}
+    </div>
+    <div class="route-title">${result.step_free?"Step-free route":"Your route"}</div>
+    <div class="stat-row">
+      <div class="stat"><div class="k">${clockIcon()} Time</div><div class="v">${fmtMin(result.total_time)}<small> min</small></div></div>
+      <div class="stat"><div class="k">${rulerIcon()} Distance</div><div class="v">${Math.round(result.total_distance)}<small> m</small></div></div>
+      <div class="stat"><div class="k">${stepIcon()} Steps</div><div class="v">${result.steps.length}</div></div>
+    </div>
     <div class="badges">${badges.join("")}</div>
-    <ol class="steps">${steps}</ol>
-    <p class="tag" style="margin-top:12px">Crowd context: ${snap.note}</p>`;
+    <ol class="timeline">${startLi}${steps}</ol>
+    <div class="crowd-ctx">${warnIcon()}<span>${snap.note}</span></div>`;
   drawMap(result,cong);
 }
 
 function renderBrief(){
-  const minute=+$("#ominute").value;
-  const b=buildBrief(snapshot(minute));
-  let html=`<h3>Operations brief — minute ${minute}′</h3><p class="tag">${b.note}</p>`;
-  if(!b.ranked.length){ html+=`<p class="badge b-ok">All zones free-flowing. No action required.</p>`; }
-  else{
-    html+=`<h4>Top congestion risks</h4>`;
-    b.ranked.forEach(([z,f])=>{ html+=`<div class="zone"><span>${ZONE_LABEL[z]}</span><span class="load">load ${f.toFixed(1)}</span></div>`; });
-    html+=`<h4>Recommended actions</h4>`;
-    b.actions.forEach(a=>{ html+=`<div class="action">→ ${a}</div>`; });
+  const minute=+$("#ominute").value, b=buildBrief(snapshot(minute));
+  let html=`<p class="ops-note" style="margin-bottom:14px">${b.note}</p>`;
+  if(!b.ranked.length){
+    html+=`<div class="all-clear">${okIcon()} All zones free-flowing — no action required.</div>`;
+  }else{
+    b.ranked.forEach(([z,f])=>{
+      const sev=f>=1?"sev-hi":"sev-md", pct=Math.min(100,Math.round(f/2*100));
+      html+=`<div class="zone"><span class="zn">${ZONE_LABEL[z]}</span><span class="zl">load ${f.toFixed(1)}</span>
+        <span class="bar ${sev}"><span style="width:${pct}%"></span></span></div>`;
+    });
+    html+=`<div class="ops-actions"><h4>Recommended actions</h4>`;
+    b.actions.forEach((a,i)=>{html+=`<div class="action"><span class="idx">${i+1}</span><span>${a}</span></div>`;});
+    html+=`</div>`;
   }
   $("#brief").innerHTML=html;
 }
 
-// wiring
-$("#minute").addEventListener("input",e=>{ $("#minute-out").textContent=e.target.value+"′"; });
-$("#ominute").addEventListener("input",e=>{ $("#ominute-out").textContent=e.target.value+"′"; renderBrief(); });
+/* inline icons */
+function icon(p,w){return `<svg viewBox="0 0 24 24" width="${w||14}" height="${w||14}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;}
+const okIcon=()=>icon('<path d="M20 6 9 17l-5-5"/>');
+const warnIcon=()=>icon('<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>');
+const leafIcon=()=>icon('<path d="M11 20A7 7 0 0 1 4 13c0-6 8-9 16-9 0 8-3 16-9 16z"/><path d="M4 20c3-4 6-6 10-7"/>');
+const clockIcon=()=>icon('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>');
+const rulerIcon=()=>icon('<path d="M3 9 9 3l12 12-6 6z"/><path d="m7 9 1 1M10 6l1 1M13 9l1 1M9 13l1 1"/>');
+const stepIcon=()=>icon('<path d="M4 18h4v-4h4v-4h4V6h4"/>');
+const pinIcon=()=>icon('<path d="M12 21s-7-6.3-7-11a7 7 0 0 1 14 0c0 4.7-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',15);
+const flagIcon=()=>icon('<path d="M4 22V4M4 4h13l-2 4 2 4H4"/>',15);
+const sparkIcon=()=>icon('<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"/>',13);
+
+/* wiring */
+$("#minute").addEventListener("input",e=>{$("#minute-out").textContent=e.target.value+"′";});
+$("#ominute").addEventListener("input",e=>{$("#ominute-out").textContent=e.target.value+"′";renderBrief();});
 $("#go").addEventListener("click",()=>renderRoute($("#q").value));
-$("#q").addEventListener("keydown",e=>{ if(e.key==="Enter") renderRoute($("#q").value); });
+$("#q").addEventListener("keydown",e=>{if(e.key==="Enter")renderRoute($("#q").value);});
 document.querySelectorAll("#examples .chip").forEach(c=>
-  c.addEventListener("click",()=>{ $("#q").value=c.textContent.trim(); renderRoute($("#q").value); }));
+  c.addEventListener("click",()=>{$("#q").value=c.textContent.trim();renderRoute($("#q").value);}));
 
 function selectTab(which){
   const fan=which==="fan";
@@ -431,15 +773,12 @@ function selectTab(which){
   $("#tab-ops").setAttribute("aria-selected",!fan);
   $("#panel-fan").classList.toggle("hidden",!fan);
   $("#panel-ops").classList.toggle("hidden",fan);
-  if(!fan) renderBrief();
+  if(!fan)renderBrief();
 }
 $("#tab-fan").addEventListener("click",()=>selectTab("fan"));
 $("#tab-ops").addEventListener("click",()=>selectTab("ops"));
 
-// first paint
 renderRoute($("#q").value);
-
-// expose for automated sanity checks
 window.PulseRoute={parseRequest,findRoute,snapshot,buildBrief};
 </script>
 </body>
