@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PulseRoute — Smart Stadium Copilot · FIFA World Cup 2026</title>
+<meta name="description" content="Hybrid symbolic + GenAI stadium wayfinding and operations copilot. Guaranteed step-free routing, live crowd-aware paths, multilingual, sustainable." />
+<style>
+  :root{
+    --bg:#f4f6fb; --panel:#ffffff; --ink:#141a2e; --muted:#5a6482;
+    --line:#e2e7f2; --brand:#2f6bff; --brand-ink:#ffffff;
+    --ok:#0a8f5b; --warn:#c8781a; --accent:#7a3ff2; --focus:#ffb020;
+    --shadow:0 6px 24px rgba(20,26,46,.08);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#0d1017;--panel:#161b26;--ink:#eef1f8;--muted:#9aa4bf;
+      --line:#28303f;--brand:#5a8bff;--ok:#2bd18a;--warn:#f0a94b;--accent:#a97bff;--shadow:0 6px 24px rgba(0,0,0,.4);}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    background:var(--bg);color:var(--ink);}
+  a{color:var(--brand)}
+  .wrap{max-width:1080px;margin:0 auto;padding:20px 18px 60px}
+  header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:8px 0 6px}
+  .logo{width:40px;height:40px;border-radius:12px;background:
+    radial-gradient(circle at 30% 30%,var(--accent),var(--brand));flex:0 0 auto}
+  h1{font-size:1.5rem;margin:0;letter-spacing:-.02em}
+  .tag{color:var(--muted);font-size:.92rem;margin:2px 0 0}
+  .thesis{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--brand);
+    border-radius:12px;padding:12px 16px;margin:16px 0;box-shadow:var(--shadow);font-size:.95rem}
+  .thesis b{color:var(--brand)}
+  .tabs{display:flex;gap:8px;margin:18px 0 14px}
+  .tab{appearance:none;border:1px solid var(--line);background:var(--panel);color:var(--ink);
+    padding:10px 18px;border-radius:999px;font-weight:600;cursor:pointer}
+  .tab[aria-selected="true"]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+  .tab:focus-visible,.chip:focus-visible,button:focus-visible,input:focus-visible{
+    outline:3px solid var(--focus);outline-offset:2px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media (max-width:820px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:16px 16px 18px;box-shadow:var(--shadow)}
+  label{font-weight:600;font-size:.9rem;display:block;margin:2px 0 6px}
+  input[type=text]{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;
+    background:var(--bg);color:var(--ink);font-size:1rem}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
+  .chip{border:1px dashed var(--line);background:transparent;color:var(--muted);
+    padding:6px 10px;border-radius:999px;font-size:.82rem;cursor:pointer}
+  .chip:hover{color:var(--ink);border-color:var(--brand)}
+  .row{display:flex;align-items:center;gap:12px;margin:14px 0 2px;flex-wrap:wrap}
+  .row output{font-variant-numeric:tabular-nums;font-weight:700;min-width:74px}
+  input[type=range]{flex:1;accent-color:var(--brand)}
+  select{padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+  .go{margin-top:14px;width:100%;background:var(--brand);color:var(--brand-ink);border:none;
+    padding:13px;border-radius:10px;font-weight:700;font-size:1rem;cursor:pointer}
+  .go:hover{filter:brightness(1.05)}
+  .badges{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 12px}
+  .badge{font-size:.8rem;font-weight:700;padding:5px 10px;border-radius:999px;border:1px solid transparent}
+  .b-ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok);border-color:var(--ok)}
+  .b-warn{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn);border-color:var(--warn)}
+  .b-eco{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);border-color:var(--accent)}
+  ol.steps{margin:6px 0 0;padding-left:22px}
+  ol.steps li{margin:6px 0}
+  .mode-ico{font-weight:700}
+  .err{color:var(--warn);font-weight:600}
+  svg{width:100%;height:auto;background:var(--bg);border-radius:12px;border:1px solid var(--line)}
+  .node circle{fill:var(--panel);stroke:var(--line);stroke-width:2}
+  .node.t-gate circle{stroke:var(--brand)}
+  .node.t-transit circle{stroke:var(--accent)}
+  .node text{font-size:11px;fill:var(--muted)}
+  .edge{stroke:var(--line);stroke-width:2}
+  .edge.hot{stroke:var(--warn);stroke-dasharray:5 4}
+  .path{stroke:var(--brand);stroke-width:5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .path-node circle{fill:var(--brand);stroke:var(--brand-ink)}
+  .brief h3{margin:.2em 0 .4em}
+  .brief .zone{display:flex;justify-content:space-between;gap:10px;padding:8px 10px;border:1px solid var(--line);
+    border-radius:10px;margin:6px 0;background:var(--bg)}
+  .brief .load{font-weight:700;font-variant-numeric:tabular-nums}
+  .action{padding:8px 10px;border-left:3px solid var(--brand);background:var(--bg);border-radius:8px;margin:6px 0}
+  footer{margin-top:34px;color:var(--muted);font-size:.85rem;text-align:center}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo" aria-hidden="true"></div>
+    <div>
+      <h1>PulseRoute</h1>
+      <p class="tag">Hybrid Symbolic + GenAI Stadium Copilot · FIFA World Cup 2026 · Challenge 4</p>
+    </div>
+  </header>
+
+  <p class="thesis">
+    <b>Why this is safe:</b> a large language model will confidently invent a staircase into a
+    wheelchair user's directions. PulseRoute forbids that by design — GenAI only <b>understands your
+    request</b> and <b>narrates the answer</b>. Every route is computed by a deterministic graph
+    search over a ground-truth venue map, so <b>step-free routing is provable, not hoped for.</b>
+  </p>
+
+  <div class="tabs" role="tablist" aria-label="Choose a mode">
+    <button class="tab" id="tab-fan" role="tab" aria-selected="true" aria-controls="panel-fan">🧭 Fan Wayfinding</button>
+    <button class="tab" id="tab-ops" role="tab" aria-selected="false" aria-controls="panel-ops">📊 Operations</button>
+  </div>
+
+  <!-- FAN -->
+  <section id="panel-fan" role="tabpanel" aria-labelledby="tab-fan">
+    <div class="grid">
+      <div class="panel">
+        <label for="q">Ask in plain language</label>
+        <input id="q" type="text" autocomplete="off"
+          value="from metro to section 114 in a wheelchair"
+          aria-describedby="q-help" />
+        <div class="chips" id="examples" aria-label="Example requests">
+          <button class="chip" type="button">from metro to section 114 in a wheelchair</button>
+          <button class="chip" type="button">from gate C to section 114</button>
+          <button class="chip" type="button">greenest way from metro to shuttle hub</button>
+          <button class="chip" type="button">from south concourse to the accessible restroom</button>
+          <button class="chip" type="button">wheelchair route from parking to the sensory room</button>
+        </div>
+        <p id="q-help" class="tag">The AI layer extracts origin, destination, and needs (e.g. “wheelchair” → step-free).</p>
+
+        <div class="row">
+          <label for="minute" style="margin:0">Matchday minute</label>
+          <input id="minute" type="range" min="0" max="100" step="5" value="0"
+            aria-describedby="minute-note" />
+          <output id="minute-out">0′</output>
+        </div>
+        <p id="minute-note" class="tag">Drives the live crowd feed. Try 45′ (halftime) or 100′ (full-time).</p>
+
+        <button class="go" id="go">Find my route</button>
+      </div>
+
+      <div class="panel">
+        <div id="result" aria-live="polite">
+          <p class="tag">Your route and an interactive map will appear here.</p>
+        </div>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:18px">
+      <h2 class="sr-only">Stadium map</h2>
+      <div id="map"></div>
+    </div>
+  </section>
+
+  <!-- OPS -->
+  <section id="panel-ops" role="tabpanel" aria-labelledby="tab-ops" class="hidden">
+    <div class="panel">
+      <div class="row">
+        <label for="ominute" style="margin:0">Matchday minute</label>
+        <input id="ominute" type="range" min="0" max="100" step="5" value="45" />
+        <output id="ominute-out">45′</output>
+      </div>
+      <p class="tag">The same live crowd state, aggregated into a ranked control-room decision brief.
+        Numbers are deterministic; only the phrasing would be AI-generated in production.</p>
+      <div id="brief" class="brief" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <footer>
+    Open-source reference implementation · deterministic engine has zero dependencies ·
+    <a href="https://github.com/">source & tests on GitHub</a>.
+    This live demo runs the offline (rule-based) AI layer; adding a Claude API key server-side
+    enables full multilingual understanding.
+  </footer>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   PulseRoute — client port of the deterministic engine.
+   Mirrors src/pulseroute/{graph,feed,ops,llm_agent}.py 1:1.
+   The Python package is the tested reference implementation.
+   ============================================================ */
+
+const GRAPH = {
+  nodes:[
+    ["metro","Metro Station (Line 2)","transit"],["shuttle_hub","Accessible Shuttle Hub","transit"],
+    ["parking_accessible","Accessible Parking","parking"],["rideshare","Rideshare Drop-off","transit"],
+    ["gate_A","Gate A (North)","gate"],["gate_B","Gate B (East)","gate"],
+    ["gate_C","Gate C (South)","gate"],["gate_D","Gate D (West)","gate"],
+    ["conc_N","North Concourse","concourse"],["conc_E","East Concourse","concourse"],
+    ["conc_S","South Concourse","concourse"],["conc_W","West Concourse","concourse"],
+    ["sec_101","Section 101","seating"],["sec_108","Section 108","seating"],
+    ["sec_114","Section 114","seating"],["sec_122","Section 122","seating"],
+    ["restroom_N","Restroom (North)","restroom"],["restroom_acc_S","Accessible Restroom (South)","restroom_accessible"],
+    ["sensory_room","Sensory / Calm Room","sensory"],["first_aid_E","First Aid (East)","first_aid"],
+    ["concession_W","Concession Plaza (West)","concession"]
+  ],
+  // from,to,mode,accessible,distance,co2,base_time,zone
+  edges:[
+    ["metro","gate_A","walk_outdoor",1,220,0,190,null],["metro","gate_B","walk_outdoor",1,300,0,260,null],
+    ["shuttle_hub","gate_C","walk_outdoor",1,120,0,100,null],["parking_accessible","gate_C","walk_outdoor",1,160,0,140,null],
+    ["rideshare","gate_D","walk_outdoor",1,140,0,120,null],
+    ["gate_A","conc_N","stair",0,40,0,55,null],["gate_A","conc_N","elevator",1,40,0,95,null],["gate_A","conc_N","escalator",0,40,0,60,null],
+    ["gate_B","conc_E","stair",0,40,0,55,null],["gate_B","conc_E","ramp",1,70,0,90,null],
+    ["gate_C","conc_S","stair",0,40,0,55,null],["gate_C","conc_S","elevator",1,40,0,95,null],["gate_C","conc_S","ramp",1,75,0,95,null],
+    ["gate_D","conc_W","stair",0,40,0,55,null],["gate_D","conc_W","elevator",1,40,0,95,null],
+    ["conc_N","conc_E","walk",1,180,0,150,"ne"],["conc_E","conc_S","walk",1,180,0,150,"se"],
+    ["conc_S","conc_W","walk",1,180,0,150,"sw"],["conc_W","conc_N","walk",1,180,0,150,"nw"],
+    ["conc_N","sec_101","walk",1,45,0,40,null],["conc_E","sec_108","walk",1,45,0,40,null],
+    ["conc_S","sec_114","walk",1,45,0,40,null],["conc_W","sec_122","walk",1,45,0,40,null],
+    ["conc_N","restroom_N","walk",1,30,0,25,null],["conc_S","restroom_acc_S","walk",1,35,0,30,null],
+    ["conc_S","sensory_room","walk",1,60,0,50,null],["conc_E","first_aid_E","walk",1,40,0,35,null],
+    ["conc_W","concession_W","walk",1,50,0,45,null],
+    ["metro","shuttle_hub","transit_shuttle",1,900,40,360,null],["rideshare","gate_C","walk_outdoor",1,240,0,210,null]
+  ]
+};
+const STEP_MODES = new Set(["stair","escalator"]);
+const LABEL = {}, TYPE = {};
+GRAPH.nodes.forEach(([id,l,t])=>{LABEL[id]=l;TYPE[id]=t;});
+
+// adjacency (undirected)
+const ADJ = {};
+GRAPH.nodes.forEach(([id])=>ADJ[id]=[]);
+GRAPH.edges.forEach(([f,t,mode,acc,dist,co2,bt,zone])=>{
+  ADJ[f].push({to:t,mode,acc:!!acc,dist,co2,bt,zone});
+  ADJ[t].push({to:f,mode,acc:!!acc,dist,co2,bt,zone});
+});
+const isStepFree = e => e.acc && !STEP_MODES.has(e.mode);
+
+// ---- congestion feed (mirrors feed.py) ----
+const TIMELINE = [
+  [0,{ne:.9,se:.3,sw:.2,nw:.7},"Pre-kickoff arrival surge at north/east gates."],
+  [45,{ne:.4,se:1.6,sw:1.4,nw:.5},"Halftime: concession rush jams south concourse."],
+  [100,{ne:1.8,se:1.2,sw:1.1,nw:1.7},"Full-time egress: heavy load on all exits."]
+];
+function snapshot(minute){
+  let pick=TIMELINE[0];
+  for(const row of TIMELINE){ if(row[0]<=minute) pick=row; }
+  return {minute,factors:pick[1],note:pick[2]};
+}
+
+// ---- constraint-aware Dijkstra (mirrors graph.find_route) ----
+function findRoute(req, congestion){
+  congestion = congestion||{};
+  const allowed = e => !(req.step_free && !isStepFree(e));
+  function cost(e){
+    let time=e.bt, applied=false;
+    if(req.avoid_congestion!==false && e.zone){
+      const f=congestion[e.zone]||0;
+      if(f){ time*=(1+f); applied=true; }
+    }
+    let c;
+    if(req.optimize==="co2") c=e.co2*10 + time*0.01;
+    else if(req.optimize==="balanced") c=time + e.co2*2;
+    else c=time;
+    return [c,applied];
+  }
+  const dist={[req.origin]:0}, prev={}, seen=new Set();
+  const pq=[[0,req.origin]]; let anyC=false;
+  while(pq.length){
+    pq.sort((a,b)=>a[0]-b[0]);
+    const [d,u]=pq.shift();
+    if(seen.has(u)) continue; seen.add(u);
+    if(u===req.destination) break;
+    for(const e of ADJ[u]){
+      if(!allowed(e)) continue;
+      const [c,ap]=cost(e); if(ap) anyC=true;
+      const nd=d+c;
+      if(nd < (dist[e.to]??Infinity)){ dist[e.to]=nd; prev[e.to]=[u,e]; pq.push([nd,e.to]); }
+    }
+  }
+  if(!(req.destination in dist)){
+    const why = req.step_free ? "no step-free path exists under current constraints" : "no path exists";
+    throw new Error(`Cannot route ${req.origin} → ${req.destination}: ${why}.`);
+  }
+  const steps=[]; let cur=req.destination;
+  while(cur!==req.origin){
+    const [u,e]=prev[cur];
+    let t=e.bt; if(req.avoid_congestion!==false && e.zone) t*=(1+(congestion[e.zone]||0));
+    steps.push({frm:u,to:cur,mode:e.mode,label:LABEL[cur],dist:e.dist,time:t,co2:e.co2});
+    cur=u;
+  }
+  steps.reverse();
+  return {
+    steps,
+    total_distance:steps.reduce((s,x)=>s+x.dist,0),
+    total_time:steps.reduce((s,x)=>s+x.time,0),
+    total_co2:steps.reduce((s,x)=>s+x.co2,0),
+    step_free:!!req.step_free, optimize:req.optimize, congestion_applied:anyC,
+    node_ids:[steps.length?steps[0].frm:req.origin, ...steps.map(s=>s.to)]
+  };
+}
+
+// ---- rule-based NLU (mirrors llm_agent.RuleBasedParser) ----
+const ALIASES = {
+  "metro":"metro","subway":"metro","train":"metro","line 2":"metro",
+  "shuttle hub":"shuttle_hub","shuttle":"shuttle_hub",
+  "accessible parking":"parking_accessible","parking":"parking_accessible","blue lot":"parking_accessible","car":"parking_accessible",
+  "rideshare":"rideshare","uber":"rideshare","taxi":"rideshare","drop-off":"rideshare",
+  "gate a":"gate_A","gate b":"gate_B","gate c":"gate_C","gate d":"gate_D",
+  "north concourse":"conc_N","east concourse":"conc_E","south concourse":"conc_S","west concourse":"conc_W",
+  "section 101":"sec_101","section 108":"sec_108","section 114":"sec_114","section 122":"sec_122",
+  "sec 101":"sec_101","sec 108":"sec_108","sec 114":"sec_114","sec 122":"sec_122",
+  "accessible restroom":"restroom_acc_S","accessible bathroom":"restroom_acc_S",
+  "restroom":"restroom_N","bathroom":"restroom_N","toilet":"restroom_N",
+  "sensory room":"sensory_room","calm room":"sensory_room","quiet room":"sensory_room",
+  "first aid":"first_aid_E","medical":"first_aid_E","concession":"concession_W","food":"concession_W"
+};
+const ALIAS_KEYS = Object.keys(ALIASES).sort((a,b)=>b.length-a.length);
+const STEP_FREE_HINTS=["wheelchair","step-free","step free","no stairs","accessible route","cannot climb","can't climb","mobility","walker","stroller","avoid stairs"];
+const CO2_HINTS=["greenest","lowest carbon","eco","sustainable","least co2","climate"];
+function matchAlias(text){ text=text.toLowerCase(); for(const k of ALIAS_KEYS){ if(text.includes(k)) return ALIASES[k]; } return null; }
+function parseRequest(text){
+  const lower=text.toLowerCase();
+  let origin=null,dest=null;
+  const m=lower.match(/\bfrom\b(.*?)\bto\b(.*)/);
+  if(m){ origin=matchAlias(m[1]); dest=matchAlias(m[2]); }
+  if(!origin||!dest){
+    const found=[];
+    for(const k of ALIAS_KEYS){ const i=lower.indexOf(k); if(i!==-1) found.push([i,ALIASES[k]]); }
+    found.sort((a,b)=>a[0]-b[0]);
+    const seen=[]; for(const [,id] of found){ if(!seen.includes(id)) seen.push(id); }
+    if(!origin&&seen[0]) origin=seen[0];
+    if(!dest&&seen[1]) dest=seen[1];
+  }
+  if(!origin||!dest) throw new Error("Could not identify both an origin and a destination. Try “from X to Y”.");
+  const step_free=STEP_FREE_HINTS.some(h=>lower.includes(h));
+  const optimize=CO2_HINTS.some(h=>lower.includes(h))?"co2":"time";
+  return {origin,destination:dest,step_free,optimize,avoid_congestion:true};
+}
+
+// ---- template narrator ----
+const VERB={walk:"Walk",walk_outdoor:"Walk",stair:"Take the stairs",elevator:"Take the elevator",
+  escalator:"Take the escalator",ramp:"Take the ramp",transit_shuttle:"Board the accessible shuttle",transit_metro:"Take the metro"};
+
+// ---- ops brief (mirrors ops.py) ----
+const ZONE_LABEL={ne:"North-East (Gate A/B ↔ concourse)",se:"South-East (Gate B/C ↔ concourse)",
+  sw:"South-West (Gate C/D ↔ concourse)",nw:"North-West (Gate D/A ↔ concourse)"};
+const ACTIONS={ne:"Open Gate A overflow lanes; steward reroute via West Concourse.",
+  se:"Add halftime concession stewards; signpost North restrooms.",
+  sw:"Protect step-free path to Section 114; hold South elevator for accessibility.",
+  nw:"Stagger West exit; coordinate shuttle hub dispatch."};
+function buildBrief(snap,topN=3,thr=0.8){
+  const ranked=Object.entries(snap.factors).sort((a,b)=>b[1]-a[1]).filter(([,f])=>f>=thr).slice(0,topN);
+  return {minute:snap.minute,note:snap.note,ranked,actions:ranked.map(([z])=>ACTIONS[z]).filter(Boolean)};
+}
+
+/* ================= UI ================= */
+const $=s=>document.querySelector(s);
+
+// node coordinates for the schematic map (viewBox 0 0 800 560)
+const XY={
+  metro:[150,60],shuttle_hub:[400,520],parking_accessible:[600,510],rideshare:[110,300],
+  gate_A:[400,80],gate_B:[700,300],gate_C:[400,480],gate_D:[130,300],
+  conc_N:[400,180],conc_E:[560,300],conc_S:[400,400],conc_W:[240,300],
+  sec_101:[400,230],sec_108:[500,300],sec_114:[400,350],sec_122:[300,300],
+  restroom_N:[320,150],restroom_acc_S:[470,430],sensory_room:[520,420],first_aid_E:[640,240],concession_W:[170,240]
+};
+function drawMap(result, congestion){
+  const seen=new Set(), lines=[];
+  GRAPH.edges.forEach(([f,t,mode,acc,dist,co2,bt,zone])=>{
+    const key=f<t?f+t:t+f; if(seen.has(key))return; seen.add(key);
+    const [x1,y1]=XY[f],[x2,y2]=XY[t];
+    const hot = zone && congestion && (congestion[zone]||0)>=1;
+    lines.push(`<line class="edge${hot?' hot':''}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`);
+  });
+  let pathEls="";
+  if(result){
+    const ids=result.node_ids;
+    let d="";
+    ids.forEach((id,i)=>{ const [x,y]=XY[id]; d+=(i?`L`:`M`)+x+" "+y+" "; });
+    pathEls+=`<path class="path" d="${d.trim()}"/>`;
+    ids.forEach(id=>{const[x,y]=XY[id];pathEls+=`<g class="node path-node"><circle cx="${x}" cy="${y}" r="7"/></g>`;});
+  }
+  const nodes=GRAPH.nodes.map(([id,l,t])=>{
+    const [x,y]=XY[id];
+    const short=l.replace(/\(.*\)/,"").trim();
+    return `<g class="node t-${t}"><circle cx="${x}" cy="${y}" r="6"/>
+      <text x="${x+9}" y="${y+4}">${short}</text></g>`;
+  }).join("");
+  $("#map").innerHTML=`<svg viewBox="0 0 800 560" role="img"
+    aria-label="Schematic stadium map showing the computed route.">
+    ${lines.join("")}${pathEls}${nodes}</svg>`;
+}
+
+function renderRoute(text){
+  let req;
+  try{ req=parseRequest(text); }
+  catch(e){ $("#result").innerHTML=`<p class="err">⚠ ${e.message}</p>`; drawMap(null,null); return; }
+  const minute=+$("#minute").value;
+  const snap=snapshot(minute), cong=snap.factors;
+  let result;
+  try{ result=findRoute(req,cong); }
+  catch(e){ $("#result").innerHTML=`<p class="err">⚠ ${e.message}</p>`; drawMap(null,cong); return; }
+
+  const badges=[];
+  if(result.step_free) badges.push(`<span class="badge b-ok">♿ Verified step-free</span>`);
+  if(result.congestion_applied) badges.push(`<span class="badge b-warn">⚠ Crowd-adjusted</span>`);
+  if(req.optimize==="co2"||result.total_co2) badges.push(`<span class="badge b-eco">🌱 ${result.total_co2} g CO₂</span>`);
+
+  const steps=result.steps.map((s,i)=>
+    `<li><span class="mode-ico">${VERB[s.mode]||"Proceed"}</span> to <b>${s.label}</b>
+      <span class="tag">· ${Math.round(s.dist)} m</span></li>`).join("");
+
+  $("#result").innerHTML=`
+    <h2 style="margin:.1em 0 .3em">${result.step_free?"Step-free route":"Route"}
+      <span class="tag">· ${Math.round(result.total_time/60)} min · ${Math.round(result.total_distance)} m</span></h2>
+    <div class="badges">${badges.join("")}</div>
+    <ol class="steps">${steps}</ol>
+    <p class="tag" style="margin-top:12px">Crowd context: ${snap.note}</p>`;
+  drawMap(result,cong);
+}
+
+function renderBrief(){
+  const minute=+$("#ominute").value;
+  const b=buildBrief(snapshot(minute));
+  let html=`<h3>Operations brief — minute ${minute}′</h3><p class="tag">${b.note}</p>`;
+  if(!b.ranked.length){ html+=`<p class="badge b-ok">All zones free-flowing. No action required.</p>`; }
+  else{
+    html+=`<h4>Top congestion risks</h4>`;
+    b.ranked.forEach(([z,f])=>{ html+=`<div class="zone"><span>${ZONE_LABEL[z]}</span><span class="load">load ${f.toFixed(1)}</span></div>`; });
+    html+=`<h4>Recommended actions</h4>`;
+    b.actions.forEach(a=>{ html+=`<div class="action">→ ${a}</div>`; });
+  }
+  $("#brief").innerHTML=html;
+}
+
+// wiring
+$("#minute").addEventListener("input",e=>{ $("#minute-out").textContent=e.target.value+"′"; });
+$("#ominute").addEventListener("input",e=>{ $("#ominute-out").textContent=e.target.value+"′"; renderBrief(); });
+$("#go").addEventListener("click",()=>renderRoute($("#q").value));
+$("#q").addEventListener("keydown",e=>{ if(e.key==="Enter") renderRoute($("#q").value); });
+document.querySelectorAll("#examples .chip").forEach(c=>
+  c.addEventListener("click",()=>{ $("#q").value=c.textContent.trim(); renderRoute($("#q").value); }));
+
+function selectTab(which){
+  const fan=which==="fan";
+  $("#tab-fan").setAttribute("aria-selected",fan);
+  $("#tab-ops").setAttribute("aria-selected",!fan);
+  $("#panel-fan").classList.toggle("hidden",!fan);
+  $("#panel-ops").classList.toggle("hidden",fan);
+  if(!fan) renderBrief();
+}
+$("#tab-fan").addEventListener("click",()=>selectTab("fan"));
+$("#tab-ops").addEventListener("click",()=>selectTab("ops"));
+
+// first paint
+renderRoute($("#q").value);
+
+// expose for automated sanity checks
+window.PulseRoute={parseRequest,findRoute,snapshot,buildBrief};
+</script>
+</body>
+</html>

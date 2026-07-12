@@ -1,0 +1,5 @@
+# Core PulseRoute runtime has ZERO required dependencies (stdlib only).
+# The GenAI layer is optional and degrades gracefully when absent:
+#   pip install anthropic   # enables Claude-backed NLU + multilingual narration
+# For running the test suite:
+#   pip install pytest

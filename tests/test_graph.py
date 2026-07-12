@@ -1,0 +1,74 @@
+"""Core routing + safety-invariant tests. Fully offline and deterministic."""
+from pathlib import Path
+
+import pytest
+
+from pulseroute.graph import Graph, RouteRequest, NoRouteError, STEP_MODES
+
+DATA = Path(__file__).resolve().parents[1] / "data" / "stadium_graph.json"
+
+
+@pytest.fixture(scope="module")
+def graph():
+    return Graph.from_json(DATA)
+
+
+def test_graph_loads(graph):
+    assert "sec_114" in graph.nodes
+    assert graph.nodes["sec_114"].type == "seating"
+    assert len(graph.edges) > 20
+
+
+def test_basic_route_exists(graph):
+    req = RouteRequest(origin="metro", destination="sec_114")
+    result = graph.find_route(req)
+    assert result.node_ids[0] == "metro"
+    assert result.node_ids[-1] == "sec_114"
+    assert result.total_time > 0
+
+
+# ---- THE safety-critical invariant --------------------------------------
+def test_step_free_route_never_contains_stairs(graph):
+    """A wheelchair user must NEVER be routed over a stair/escalator.
+    This is guaranteed structurally by edge pruning, not by an LLM promise."""
+    req = RouteRequest(origin="metro", destination="sec_114", step_free=True)
+    result = graph.find_route(req)
+    assert result.step_free
+    for step in result.steps:
+        assert step.mode not in STEP_MODES, f"step-free route used {step.mode}!"
+
+
+def test_step_free_prefers_elevator_over_stairs(graph):
+    """From a gate, step-free must pick the elevator/ramp edge, not stairs."""
+    req = RouteRequest(origin="gate_C", destination="sec_114", step_free=True)
+    result = graph.find_route(req)
+    modes = {s.mode for s in result.steps}
+    assert "stair" not in modes
+    assert modes & {"elevator", "ramp"}
+
+
+def test_non_step_free_may_use_stairs(graph):
+    """The fastest unconstrained route from a gate should use the quick stair."""
+    req = RouteRequest(origin="gate_C", destination="sec_114", step_free=False)
+    result = graph.find_route(req)
+    assert result.steps[0].mode == "stair"
+
+
+def test_unknown_node_raises(graph):
+    with pytest.raises(ValueError):
+        graph.find_route(RouteRequest(origin="atlantis", destination="sec_114"))
+
+
+def test_co2_optimization_prefers_low_carbon(graph):
+    """Optimizing for CO2 should never pick a higher-CO2 total than time-opt."""
+    green = graph.find_route(RouteRequest(origin="metro", destination="shuttle_hub", optimize="co2"))
+    fast = graph.find_route(RouteRequest(origin="metro", destination="shuttle_hub", optimize="time"))
+    assert green.total_co2 <= fast.total_co2
+
+
+def test_congestion_changes_travel_time(graph):
+    """A congested zone must increase the reported traversal time."""
+    req = RouteRequest(origin="conc_N", destination="conc_E")
+    free = graph.find_route(req, congestion={})
+    jammed = graph.find_route(req, congestion={"ne": 1.5})
+    assert jammed.total_time > free.total_time

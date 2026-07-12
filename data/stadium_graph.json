@@ -1,0 +1,74 @@
+{
+  "metadata": {
+    "venue": "Metropolitan World Cup Stadium (fictional reference venue)",
+    "capacity": 68000,
+    "levels": ["plaza", "concourse"],
+    "description": "Reference graph for PulseRoute. Every node and edge is ground truth. The routing engine may ONLY return paths that exist in this graph; the GenAI layer is never permitted to invent nodes or edges.",
+    "units": {"distance": "meters", "time": "seconds", "co2": "grams"}
+  },
+  "nodes": [
+    {"id": "metro",              "label": "Metro Station (Line 2)",        "level": "plaza",     "type": "transit"},
+    {"id": "shuttle_hub",        "label": "Accessible Shuttle Hub",        "level": "plaza",     "type": "transit"},
+    {"id": "parking_accessible", "label": "Accessible Parking (Blue Lot)", "level": "plaza",     "type": "parking"},
+    {"id": "rideshare",          "label": "Rideshare Drop-off",            "level": "plaza",     "type": "transit"},
+    {"id": "gate_A",             "label": "Gate A (North)",                "level": "plaza",     "type": "gate"},
+    {"id": "gate_B",             "label": "Gate B (East)",                 "level": "plaza",     "type": "gate"},
+    {"id": "gate_C",             "label": "Gate C (South)",                "level": "plaza",     "type": "gate"},
+    {"id": "gate_D",             "label": "Gate D (West)",                 "level": "plaza",     "type": "gate"},
+    {"id": "conc_N",             "label": "North Concourse",               "level": "concourse", "type": "concourse"},
+    {"id": "conc_E",             "label": "East Concourse",                "level": "concourse", "type": "concourse"},
+    {"id": "conc_S",             "label": "South Concourse",               "level": "concourse", "type": "concourse"},
+    {"id": "conc_W",             "label": "West Concourse",                "level": "concourse", "type": "concourse"},
+    {"id": "sec_101",            "label": "Section 101",                   "level": "concourse", "type": "seating"},
+    {"id": "sec_108",            "label": "Section 108",                   "level": "concourse", "type": "seating"},
+    {"id": "sec_114",            "label": "Section 114",                   "level": "concourse", "type": "seating"},
+    {"id": "sec_122",            "label": "Section 122",                   "level": "concourse", "type": "seating"},
+    {"id": "restroom_N",         "label": "Restroom (North)",              "level": "concourse", "type": "restroom"},
+    {"id": "restroom_acc_S",     "label": "Accessible Restroom (South)",   "level": "concourse", "type": "restroom_accessible"},
+    {"id": "sensory_room",       "label": "Sensory / Calm Room",           "level": "concourse", "type": "sensory"},
+    {"id": "first_aid_E",        "label": "First Aid (East)",              "level": "concourse", "type": "first_aid"},
+    {"id": "concession_W",       "label": "Concession Plaza (West)",       "level": "concourse", "type": "concession"}
+  ],
+  "edges": [
+    {"from": "metro",       "to": "gate_A", "mode": "walk_outdoor", "accessible": true,  "distance": 220, "co2": 0,   "base_time": 190},
+    {"from": "metro",       "to": "gate_B", "mode": "walk_outdoor", "accessible": true,  "distance": 300, "co2": 0,   "base_time": 260},
+    {"from": "shuttle_hub", "to": "gate_C", "mode": "walk_outdoor", "accessible": true,  "distance": 120, "co2": 0,   "base_time": 100},
+    {"from": "parking_accessible", "to": "gate_C", "mode": "walk_outdoor", "accessible": true, "distance": 160, "co2": 0, "base_time": 140},
+    {"from": "rideshare",   "to": "gate_D", "mode": "walk_outdoor", "accessible": true,  "distance": 140, "co2": 0,   "base_time": 120},
+
+    {"from": "gate_A", "to": "conc_N", "mode": "stair",     "accessible": false, "distance": 40, "co2": 0, "base_time": 55},
+    {"from": "gate_A", "to": "conc_N", "mode": "elevator",  "accessible": true,  "distance": 40, "co2": 0, "base_time": 95},
+    {"from": "gate_A", "to": "conc_N", "mode": "escalator", "accessible": false, "distance": 40, "co2": 0, "base_time": 60},
+    {"from": "gate_B", "to": "conc_E", "mode": "stair",     "accessible": false, "distance": 40, "co2": 0, "base_time": 55},
+    {"from": "gate_B", "to": "conc_E", "mode": "ramp",      "accessible": true,  "distance": 70, "co2": 0, "base_time": 90},
+    {"from": "gate_C", "to": "conc_S", "mode": "stair",     "accessible": false, "distance": 40, "co2": 0, "base_time": 55},
+    {"from": "gate_C", "to": "conc_S", "mode": "elevator",  "accessible": true,  "distance": 40, "co2": 0, "base_time": 95},
+    {"from": "gate_C", "to": "conc_S", "mode": "ramp",      "accessible": true,  "distance": 75, "co2": 0, "base_time": 95},
+    {"from": "gate_D", "to": "conc_W", "mode": "stair",     "accessible": false, "distance": 40, "co2": 0, "base_time": 55},
+    {"from": "gate_D", "to": "conc_W", "mode": "elevator",  "accessible": true,  "distance": 40, "co2": 0, "base_time": 95},
+
+    {"from": "conc_N", "to": "conc_E", "mode": "walk", "accessible": true, "distance": 180, "co2": 0, "base_time": 150, "congestion_zone": "ne"},
+    {"from": "conc_E", "to": "conc_S", "mode": "walk", "accessible": true, "distance": 180, "co2": 0, "base_time": 150, "congestion_zone": "se"},
+    {"from": "conc_S", "to": "conc_W", "mode": "walk", "accessible": true, "distance": 180, "co2": 0, "base_time": 150, "congestion_zone": "sw"},
+    {"from": "conc_W", "to": "conc_N", "mode": "walk", "accessible": true, "distance": 180, "co2": 0, "base_time": 150, "congestion_zone": "nw"},
+
+    {"from": "conc_N", "to": "sec_101",       "mode": "walk", "accessible": true, "distance": 45, "co2": 0, "base_time": 40},
+    {"from": "conc_E", "to": "sec_108",       "mode": "walk", "accessible": true, "distance": 45, "co2": 0, "base_time": 40},
+    {"from": "conc_S", "to": "sec_114",       "mode": "walk", "accessible": true, "distance": 45, "co2": 0, "base_time": 40},
+    {"from": "conc_W", "to": "sec_122",       "mode": "walk", "accessible": true, "distance": 45, "co2": 0, "base_time": 40},
+    {"from": "conc_N", "to": "restroom_N",    "mode": "walk", "accessible": true, "distance": 30, "co2": 0, "base_time": 25},
+    {"from": "conc_S", "to": "restroom_acc_S","mode": "walk", "accessible": true, "distance": 35, "co2": 0, "base_time": 30},
+    {"from": "conc_S", "to": "sensory_room",  "mode": "walk", "accessible": true, "distance": 60, "co2": 0, "base_time": 50},
+    {"from": "conc_E", "to": "first_aid_E",   "mode": "walk", "accessible": true, "distance": 40, "co2": 0, "base_time": 35},
+    {"from": "conc_W", "to": "concession_W",  "mode": "walk", "accessible": true, "distance": 50, "co2": 0, "base_time": 45},
+
+    {"from": "metro",       "to": "shuttle_hub", "mode": "transit_shuttle", "accessible": true, "distance": 900, "co2": 40,   "base_time": 360},
+    {"from": "rideshare",   "to": "gate_C",      "mode": "walk_outdoor",    "accessible": true, "distance": 240, "co2": 0,    "base_time": 210}
+  ],
+  "external_arrival": {
+    "metro":              {"co2_per_pax": 55,   "label": "Metro (Line 2)"},
+    "shuttle_hub":        {"co2_per_pax": 40,   "label": "Accessible shuttle"},
+    "parking_accessible": {"co2_per_pax": 2100, "label": "Private car"},
+    "rideshare":          {"co2_per_pax": 1400, "label": "Rideshare"}
+  }
+}
