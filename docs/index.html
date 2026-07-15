@@ -408,7 +408,7 @@
 const GRAPH = {
   nodes:[
     ["metro","Metro Station (Line 2)","transit"],["shuttle_hub","Accessible Shuttle Hub","transit"],
-    ["parking_accessible","Accessible Parking","parking"],["rideshare","Rideshare Drop-off","transit"],
+    ["parking_accessible","Accessible Parking (Blue Lot)","parking"],["rideshare","Rideshare Drop-off","transit"],
     ["gate_A","Gate A (North)","gate"],["gate_B","Gate B (East)","gate"],
     ["gate_C","Gate C (South)","gate"],["gate_D","Gate D (West)","gate"],
     ["conc_N","North Concourse","concourse"],["conc_E","East Concourse","concourse"],
@@ -443,10 +443,12 @@ GRAPH.nodes.forEach(([id,l,t])=>{LABEL[id]=l;TYPE[id]=t;});
 const ADJ={};
 GRAPH.nodes.forEach(([id])=>ADJ[id]=[]);
 GRAPH.edges.forEach(([f,t,mode,acc,dist,co2,bt,zone])=>{
-  ADJ[f].push({to:t,mode,acc:!!acc,dist,co2,bt,zone});
-  ADJ[t].push({to:f,mode,acc:!!acc,dist,co2,bt,zone});
+  /* stepFree is derived ONCE at load (mirrors Edge.step_free in graph.py) so the
+     search loop never repeats the Set lookup per relaxation. */
+  const stepFree=!!acc&&!STEP_MODES.has(mode);
+  ADJ[f].push({to:t,mode,acc:!!acc,stepFree,dist,co2,bt,zone});
+  ADJ[t].push({to:f,mode,acc:!!acc,stepFree,dist,co2,bt,zone});
 });
-const isStepFree = e => e.acc && !STEP_MODES.has(e.mode);
 
 const TIMELINE=[
   [0,{ne:.9,se:.3,sw:.2,nw:.7},"Pre-kickoff arrival surge at north/east gates."],
@@ -455,30 +457,47 @@ const TIMELINE=[
 ];
 function snapshot(minute){let pick=TIMELINE[0];for(const r of TIMELINE){if(r[0]<=minute)pick=r;}return{minute,factors:pick[1],note:pick[2]};}
 
+/* Binary min-heap. The previous implementation re-sorted the whole frontier on
+   every pop — O(V^2 log V) overall. Sift-up/sift-down make each push/pop
+   O(log V), matching heapq in the Python reference. */
+class MinHeap{
+  constructor(){this._a=[];}
+  get size(){return this._a.length;}
+  push(item){const a=this._a;a.push(item);let i=a.length-1;
+    while(i>0){const p=(i-1)>>1;if(a[p][0]<=a[i][0])break;[a[p],a[i]]=[a[i],a[p]];i=p;}}
+  pop(){const a=this._a;const top=a[0],last=a.pop();
+    if(a.length){a[0]=last;let i=0;
+      for(;;){const l=2*i+1,r=l+1;let m=i;
+        if(l<a.length&&a[l][0]<a[m][0])m=l;
+        if(r<a.length&&a[r][0]<a[m][0])m=r;
+        if(m===i)break;[a[m],a[i]]=[a[i],a[m]];i=m;}}
+    return top;}
+}
 function findRoute(req,congestion){
   congestion=congestion||{};
-  const allowed=e=>!(req.step_free&&!isStepFree(e));
+  const stepFreeOnly=!!req.step_free, avoid=req.avoid_congestion!==false, optimize=req.optimize;
+  /* Returns [searchCost, realTime, congestionApplied] — the real time rides along
+     so reconstruction reuses it instead of redoing the congestion maths. */
   function cost(e){
     let time=e.bt,applied=false;
-    if(req.avoid_congestion!==false&&e.zone){const f=congestion[e.zone]||0;if(f){time*=(1+f);applied=true;}}
+    if(avoid&&e.zone){const f=congestion[e.zone]||0;if(f){time*=(1+f);applied=true;}}
     let c;
-    if(req.optimize==="co2")c=e.co2*10+time*0.01;
-    else if(req.optimize==="balanced")c=time+e.co2*2;
+    if(optimize==="co2")c=e.co2*10+time*0.01;
+    else if(optimize==="balanced")c=time+e.co2*2;
     else c=time;
-    return[c,applied];
+    return[c,time,applied];
   }
   const dist={[req.origin]:0},prev={},seen=new Set();
-  const pq=[[0,req.origin]];let anyC=false;
-  while(pq.length){
-    pq.sort((a,b)=>a[0]-b[0]);
-    const[d,u]=pq.shift();
+  const pq=new MinHeap();pq.push([0,req.origin]);let anyC=false;
+  while(pq.size){
+    const[d,u]=pq.pop();
     if(seen.has(u))continue;seen.add(u);
     if(u===req.destination)break;
     for(const e of ADJ[u]){
-      if(!allowed(e))continue;
-      const[c,ap]=cost(e);if(ap)anyC=true;
+      if(stepFreeOnly&&!e.stepFree)continue;
+      const[c,t,ap]=cost(e);if(ap)anyC=true;
       const nd=d+c;
-      if(nd<(dist[e.to]??Infinity)){dist[e.to]=nd;prev[e.to]=[u,e];pq.push([nd,e.to]);}
+      if(nd<(dist[e.to]??Infinity)){dist[e.to]=nd;prev[e.to]=[u,e,t];pq.push([nd,e.to]);}
     }
   }
   if(!(req.destination in dist)){
@@ -487,8 +506,7 @@ function findRoute(req,congestion){
   }
   const steps=[];let cur=req.destination;
   while(cur!==req.origin){
-    const[u,e]=prev[cur];
-    let t=e.bt;if(req.avoid_congestion!==false&&e.zone)t*=(1+(congestion[e.zone]||0));
+    const[u,e,t]=prev[cur];   // t was computed during relaxation; no recompute
     steps.push({frm:u,to:cur,mode:e.mode,label:LABEL[cur],dist:e.dist,time:t,co2:e.co2});
     cur=u;
   }

@@ -17,13 +17,14 @@ system is fully functional and testable with zero network access.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 
-from .graph import Graph, RouteRequest, RouteResult
+from .graph import RouteRequest, RouteResult
 
 # Human-friendly aliases the parser understands, mapped to graph node ids.
-_ALIASES = {
+ALIASES = {
     "metro": "metro", "subway": "metro", "train": "metro", "line 2": "metro",
     "shuttle": "shuttle_hub", "shuttle hub": "shuttle_hub",
     "parking": "parking_accessible", "blue lot": "parking_accessible",
@@ -42,20 +43,42 @@ _ALIASES = {
     "concession": "concession_W", "food": "concession_W",
 }
 
+# Sorted ONCE at import, longest-first, so "accessible restroom" always wins over
+# the substring "restroom". Sorting inside the parser would repeat this work on
+# every single request.
+_ALIAS_KEYS_LONGEST_FIRST: tuple[str, ...] = tuple(
+    sorted(ALIASES, key=len, reverse=True)
+)
+# Every valid node id the LLM is allowed to emit, precomputed for the prompt.
+_VALID_NODE_IDS: tuple[str, ...] = tuple(sorted(set(ALIASES.values())))
+
 _STEP_FREE_HINTS = (
     "wheelchair", "step-free", "step free", "no stairs", "accessible route",
     "cannot climb", "can't climb", "mobility", "walker", "stroller", "avoid stairs",
 )
 _CO2_HINTS = ("greenest", "lowest carbon", "eco", "sustainable", "least co2", "climate")
 
+_FROM_TO_RE = re.compile(r"\bfrom\b(.*?)\bto\b(.*)", re.DOTALL)
+
+_MODE_VERBS = {
+    "walk": "Walk", "walk_outdoor": "Walk", "stair": "Take the stairs",
+    "elevator": "Take the elevator", "escalator": "Take the escalator",
+    "ramp": "Take the ramp", "transit_shuttle": "Board the accessible shuttle",
+    "transit_metro": "Take the metro",
+}
+
 
 def _match_alias(text: str) -> str | None:
-    text = text.lower()
-    # Prefer the longest alias match so "accessible restroom" beats "restroom".
-    for alias in sorted(_ALIASES, key=len, reverse=True):
-        if alias in text:
-            return _ALIASES[alias]
+    """Longest-alias-wins lookup over a pre-sorted key tuple."""
+    lowered = text.lower()
+    for alias in _ALIAS_KEYS_LONGEST_FIRST:
+        if alias in lowered:
+            return ALIASES[alias]
     return None
+
+
+def _mode_verb(mode: str) -> str:
+    return _MODE_VERBS.get(mode, "Proceed")
 
 
 class RuleBasedParser:
@@ -63,27 +86,20 @@ class RuleBasedParser:
 
     def parse(self, text: str) -> RouteRequest:
         lower = text.lower()
-        # Split on "to" / "->" to separate origin and destination phrases.
         origin_id = dest_id = None
-        m = re.search(r"\bfrom\b(.*?)\bto\b(.*)", lower)
-        if m:
-            origin_id = _match_alias(m.group(1))
-            dest_id = _match_alias(m.group(2))
+
+        # Preferred form: "... from <origin> to <destination> ..."
+        match = _FROM_TO_RE.search(lower)
+        if match:
+            origin_id = _match_alias(match.group(1))
+            dest_id = _match_alias(match.group(2))
+
         if origin_id is None or dest_id is None:
-            # Fallback: first two distinct aliases in reading order.
-            found: list[str] = []
-            for token_alias in sorted(_ALIASES, key=len, reverse=True):
-                idx = lower.find(token_alias)
-                if idx != -1:
-                    found.append((idx, _ALIASES[token_alias]))
-            seen: list[str] = []
-            for _, nid in sorted(found):
-                if nid not in seen:
-                    seen.append(nid)
-            if origin_id is None and seen:
-                origin_id = seen[0]
-            if dest_id is None and len(seen) > 1:
-                dest_id = seen[1]
+            ordered = self._aliases_in_reading_order(lower)
+            if origin_id is None and ordered:
+                origin_id = ordered[0]
+            if dest_id is None and len(ordered) > 1:
+                dest_id = ordered[1]
 
         if not origin_id or not dest_id:
             raise ValueError(
@@ -97,18 +113,34 @@ class RuleBasedParser:
             step_free=step_free, optimize=optimize,
         )
 
+    @staticmethod
+    def _aliases_in_reading_order(lowered: str) -> list[str]:
+        """Distinct node ids, ordered by where they appear in the text."""
+        hits: list[tuple[int, str]] = []
+        for alias in _ALIAS_KEYS_LONGEST_FIRST:
+            idx = lowered.find(alias)
+            if idx != -1:
+                hits.append((idx, ALIASES[alias]))
+        hits.sort()
+        ordered: list[str] = []
+        for _, node_id in hits:
+            if node_id not in ordered:
+                ordered.append(node_id)
+        return ordered
+
 
 class TemplateNarrator:
     """Deterministic offline narration. Mirrors the LLM narrator's structure."""
 
-    def narrate(self, graph: Graph, result: RouteResult, language: str = "en") -> str:
-        lines = []
+    def narrate(self, result: RouteResult) -> str:
         head = "Step-free route" if result.step_free else "Route"
-        lines.append(f"{head} ({result.total_time/60:.0f} min, "
-                     f"{result.total_distance:.0f} m):")
-        for i, s in enumerate(result.steps, 1):
-            verb = _mode_verb(s.mode)
-            lines.append(f"  {i}. {verb} to {s.label_to}.")
+        lines = [
+            f"{head} ({result.total_time / 60:.0f} min, {result.total_distance:.0f} m):"
+        ]
+        lines.extend(
+            f"  {i}. {_mode_verb(s.mode)} to {s.label_to}."
+            for i, s in enumerate(result.steps, 1)
+        )
         if result.congestion_applied:
             lines.append("  ⚠ Route adjusted to avoid current congestion.")
         if result.step_free:
@@ -116,15 +148,6 @@ class TemplateNarrator:
         if result.total_co2:
             lines.append(f"  🌱 Transit CO₂ for this route: {result.total_co2:.0f} g.")
         return "\n".join(lines)
-
-
-def _mode_verb(mode: str) -> str:
-    return {
-        "walk": "Walk", "walk_outdoor": "Walk", "stair": "Take the stairs",
-        "elevator": "Take the elevator", "escalator": "Take the escalator",
-        "ramp": "Take the ramp", "transit_shuttle": "Board the accessible shuttle",
-        "transit_metro": "Take the metro",
-    }.get(mode, "Proceed")
 
 
 class LLMAgent:
@@ -144,7 +167,7 @@ class LLMAgent:
         self._client = None
         if self.use_llm:
             try:
-                import anthropic  # type: ignore
+                import anthropic  # noqa: PLC0415  (optional dependency)
                 self._client = anthropic.Anthropic()
             except Exception:
                 # Any import/auth failure degrades gracefully to offline mode.
@@ -159,23 +182,22 @@ class LLMAgent:
                 pass  # fall through to deterministic parser
         return self._parser.parse(text)
 
-    def narrate(self, graph: Graph, result: RouteResult, language: str = "en") -> str:
+    def narrate(self, result: RouteResult, language: str = "en") -> str:
         if self.use_llm and self._client is not None:
             try:
-                return self._narrate_with_llm(graph, result, language)
+                return self._narrate_with_llm(result, language)
             except Exception:
                 pass
-        return self._narrator.narrate(graph, result, language)
+        return self._narrator.narrate(result)
 
     # ---- Claude-backed implementations --------------------------------
     def _parse_with_llm(self, text: str) -> RouteRequest:
-        import json
-        valid_nodes = ", ".join(sorted(_ALIASES.values() | {"metro"}))
         system = (
             "You extract a structured stadium routing request from a fan message. "
             "Return ONLY JSON with keys origin, destination (graph node ids), "
             "step_free (bool), optimize ('time'|'co2'). "
-            f"Valid node ids: {valid_nodes}. Do not invent ids or routes."
+            f"Valid node ids: {', '.join(_VALID_NODE_IDS)}. "
+            "Do not invent ids or routes."
         )
         msg = self._client.messages.create(
             model=self.model, max_tokens=300,
@@ -188,25 +210,23 @@ class LLMAgent:
             optimize=payload.get("optimize", "time"),
         )
 
-    def _narrate_with_llm(self, graph: Graph, result: RouteResult, language: str) -> str:
-        steps = [
-            {"mode": s.mode, "to": s.label_to, "distance_m": round(s.distance)}
-            for s in result.steps
-        ]
+    def _narrate_with_llm(self, result: RouteResult, language: str) -> str:
         system = (
             "You are a warm, concise stadium wayfinding assistant. You are given a "
             "PRE-COMPUTED, VERIFIED route as JSON. Narrate it faithfully; never add, "
             "remove, or reorder steps. If step_free is true, reassure the user it is "
             f"verified step-free. Respond in language code: {language}."
         )
-        import json as _json
-        payload = _json.dumps({
+        payload = json.dumps({
             "step_free": result.step_free,
             "total_minutes": round(result.total_time / 60),
             "total_meters": round(result.total_distance),
             "co2_grams": round(result.total_co2),
             "congestion_adjusted": result.congestion_applied,
-            "steps": steps,
+            "steps": [
+                {"mode": s.mode, "to": s.label_to, "distance_m": round(s.distance)}
+                for s in result.steps
+            ],
         })
         msg = self._client.messages.create(
             model=self.model, max_tokens=500,
