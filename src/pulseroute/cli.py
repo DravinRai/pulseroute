@@ -8,6 +8,7 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import sys
 from pathlib import Path
 
@@ -38,7 +39,7 @@ def cmd_route(args: argparse.Namespace) -> int:
     except NoRouteError as e:
         print(str(e), file=sys.stderr)
         return 3
-    print(agent.narrate(graph, result, language=args.lang))
+    print(agent.narrate(result, language=args.lang))
     return 0
 
 
@@ -71,10 +72,8 @@ def _force_utf8_stdout() -> None:
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
         if reconfigure:
-            try:
+            with contextlib.suppress(ValueError, OSError):
                 reconfigure(encoding="utf-8")
-            except (ValueError, OSError):
-                pass
 
 
 def main(argv: list[str] | None = None) -> int:

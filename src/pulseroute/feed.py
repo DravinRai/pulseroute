@@ -8,13 +8,14 @@ consumes only the abstract interface: a dict of {zone: congestion_factor}.
 from __future__ import annotations
 
 import json
+from bisect import bisect_right
 from dataclasses import dataclass
 from pathlib import Path
 
 ZONES = ("ne", "se", "sw", "nw")
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class CongestionSnapshot:
     minute: int
     factors: dict[str, float]     # zone -> multiplier delta (0.0 = free-flowing)
@@ -38,18 +39,27 @@ _TIMELINE = {
 
 
 class FeedSimulator:
+    """Serves the scripted snapshot in effect at a given matchday minute.
+
+    The timeline keys are sorted **once** at construction, so each lookup is an
+    ``O(log n)`` binary search rather than re-sorting the timeline per call.
+    """
+
     def __init__(self, timeline: dict[int, tuple[dict, str]] | None = None):
         self._timeline = timeline or _TIMELINE
+        self._keys = sorted(self._timeline)
+        if not self._keys:
+            raise ValueError("FeedSimulator requires a non-empty timeline.")
 
     def snapshot(self, minute: int) -> CongestionSnapshot:
         """Return the most recent scripted snapshot at or before `minute`."""
-        keys = sorted(k for k in self._timeline if k <= minute)
-        key = keys[-1] if keys else min(self._timeline)
+        idx = bisect_right(self._keys, minute) - 1
+        key = self._keys[max(idx, 0)]
         factors, note = self._timeline[key]
         return CongestionSnapshot(minute=minute, factors=dict(factors), note=note)
 
     @classmethod
-    def from_json(cls, path: str | Path) -> "FeedSimulator":
+    def from_json(cls, path: str | Path) -> FeedSimulator:
         raw = json.loads(Path(path).read_text(encoding="utf-8"))
         timeline = {int(k): (v["factors"], v["note"]) for k, v in raw.items()}
         return cls(timeline)
