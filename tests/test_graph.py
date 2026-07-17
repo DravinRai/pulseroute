@@ -1,17 +1,15 @@
 """Core routing + safety-invariant tests. Fully offline and deterministic."""
 from dataclasses import FrozenInstanceError
-from pathlib import Path
 
 import pytest
 
+from pulseroute import VENUE_GRAPH_PATH
 from pulseroute.graph import STEP_MODES, Graph, RouteRequest
-
-DATA = Path(__file__).resolve().parents[1] / "data" / "stadium_graph.json"
 
 
 @pytest.fixture(scope="module")
 def graph():
-    return Graph.from_json(DATA)
+    return Graph.from_json(VENUE_GRAPH_PATH)
 
 
 def test_graph_loads(graph):

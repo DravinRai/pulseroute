@@ -10,18 +10,16 @@ from __future__ import annotations
 import argparse
 import contextlib
 import sys
-from pathlib import Path
 
+from . import VENUE_GRAPH_PATH
 from .feed import FeedSimulator
 from .graph import Graph, NoRouteError
 from .llm_agent import LLMAgent
 from .ops import build_brief
 
-_DATA = Path(__file__).resolve().parents[2] / "data" / "stadium_graph.json"
-
 
 def _load_graph(path: str | None) -> Graph:
-    return Graph.from_json(path or _DATA)
+    return Graph.from_json(path or VENUE_GRAPH_PATH)
 
 
 def cmd_route(args: argparse.Namespace) -> int:
@@ -80,7 +78,9 @@ def main(argv: list[str] | None = None) -> int:
     _force_utf8_stdout()
     parser = build_parser()
     args = parser.parse_args(argv)
-    return args.func(args)
+    # argparse stores the handler untyped; each cmd_* returns a process exit code.
+    exit_code: int = args.func(args)
+    return exit_code
 
 
 if __name__ == "__main__":
