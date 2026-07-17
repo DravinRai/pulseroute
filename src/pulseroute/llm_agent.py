@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from typing import Any
 
 from .graph import RouteRequest, RouteResult
 
@@ -163,19 +164,27 @@ class LLMAgent:
         self._narrator = TemplateNarrator()
         if use_llm is None:
             use_llm = bool(os.environ.get("ANTHROPIC_API_KEY"))
-        self.use_llm = use_llm
-        self._client = None
-        if self.use_llm:
+        # `anthropic` is an optional extra, so the client is deliberately untyped
+        # here; every call site goes through _require_client().
+        self._client: Any | None = None
+        if use_llm:
             try:
                 import anthropic  # noqa: PLC0415  (optional dependency)
                 self._client = anthropic.Anthropic()
             except Exception:
                 # Any import/auth failure degrades gracefully to offline mode.
-                self.use_llm = False
+                pass
+        self.use_llm = self._client is not None
+
+    def _require_client(self) -> Any:
+        """Narrow the optional client for the Claude-backed paths."""
+        if self._client is None:
+            raise RuntimeError("Claude backend is unavailable.")
+        return self._client
 
     # ---- intent parsing ------------------------------------------------
     def parse_request(self, text: str) -> RouteRequest:
-        if self.use_llm and self._client is not None:
+        if self.use_llm:
             try:
                 return self._parse_with_llm(text)
             except Exception:
@@ -183,7 +192,7 @@ class LLMAgent:
         return self._parser.parse(text)
 
     def narrate(self, result: RouteResult, language: str = "en") -> str:
-        if self.use_llm and self._client is not None:
+        if self.use_llm:
             try:
                 return self._narrate_with_llm(result, language)
             except Exception:
@@ -199,11 +208,11 @@ class LLMAgent:
             f"Valid node ids: {', '.join(_VALID_NODE_IDS)}. "
             "Do not invent ids or routes."
         )
-        msg = self._client.messages.create(
+        msg = self._require_client().messages.create(
             model=self.model, max_tokens=300,
             system=system, messages=[{"role": "user", "content": text}],
         )
-        payload = json.loads(_extract_json(msg.content[0].text))
+        payload: dict[str, Any] = json.loads(_extract_json(msg.content[0].text))
         return RouteRequest(
             origin=payload["origin"], destination=payload["destination"],
             step_free=bool(payload.get("step_free", False)),
@@ -228,11 +237,12 @@ class LLMAgent:
                 for s in result.steps
             ],
         })
-        msg = self._client.messages.create(
+        msg = self._require_client().messages.create(
             model=self.model, max_tokens=500,
             system=system, messages=[{"role": "user", "content": payload}],
         )
-        return msg.content[0].text.strip()
+        text: str = msg.content[0].text
+        return text.strip()
 
 
 def _extract_json(text: str) -> str:

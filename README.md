@@ -3,7 +3,7 @@
 **FIFA World Cup 2026 · Challenge 4: Smart Stadiums & Tournament Operations**
 
 [![CI](https://github.com/DravinRai/pulseroute/actions/workflows/ci.yml/badge.svg)](https://github.com/DravinRai/pulseroute/actions/workflows/ci.yml)
-![Tests](https://img.shields.io/badge/tests-29%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-32%20passing-brightgreen)
 ![Runtime dependencies](https://img.shields.io/badge/runtime%20dependencies-0-blue)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
@@ -76,20 +76,41 @@ truth and safety.**
 ## 3. How it works technically
 
 ### Modules
+
+**The venue is defined exactly once.** `docs/data/stadium_graph.json` is read by
+Python from disk *and* `fetch()`-ed by the browser — it lives under `docs/`
+because GitHub Pages publishes that directory as the site root. Neither engine
+carries a copy, so they cannot drift apart on the data.
+
 | File | Responsibility | AI? |
 |---|---|---|
-| `data/stadium_graph.json` | Ground-truth venue graph: nodes, edges, modes, accessibility flags, CO₂, congestion zones. | — |
+| `docs/data/stadium_graph.json` | **Single source of truth**: nodes, edges, modes, accessibility flags, CO₂, congestion zones. | — |
 | `src/pulseroute/graph.py` | Graph model + **constraint-aware Dijkstra**. Pure, deterministic, testable. | No |
 | `src/pulseroute/feed.py` | Deterministic congestion-feed simulator (pluggable for real telemetry). | No |
 | `src/pulseroute/ops.py` | Aggregates live state into a ranked operations decision brief. | No |
 | `src/pulseroute/llm_agent.py` | NLU (text → `RouteRequest`) + multilingual narration. Claude-backed, with an offline rule-based fallback. | Yes |
 | `src/pulseroute/cli.py` | Command-line interface for both personas. | — |
-| `docs/index.html` | Self-contained web app (the deployed demo): the engine ported to JS, embedded graph, interactive stadium map. Served free via GitHub Pages. | Offline AI layer |
+
+The deployed web app mirrors that same separation of concerns — markup, styling
+and behaviour are separate files, and each module has one job:
+
+| File | Responsibility |
+|---|---|
+| `docs/index.html` | Semantic markup only (no inline `<style>` or `<script>`). |
+| `docs/assets/styles.css` | All styling; light/dark theming. |
+| `docs/assets/js/graph.js` | Venue graph + constraint-aware Dijkstra (binary min-heap). Counterpart of `graph.py`. |
+| `docs/assets/js/feed.js` | Congestion simulator. Counterpart of `feed.py`. |
+| `docs/assets/js/ops.js` | Control-room brief. Counterpart of `ops.py`. |
+| `docs/assets/js/nlu.js` | Offline intent parser. Counterpart of the fallback in `llm_agent.py`. |
+| `docs/assets/js/mapview.js` | SVG stadium map rendering. Presentation only. |
+| `docs/assets/js/icons.js` | Inline SVG icon set. |
+| `docs/assets/js/main.js` | DOM wiring — the only module that touches the page. |
 
 ### Key mechanisms
 - **Hard accessibility constraint.** When `step_free=True`, every stair/escalator
-  edge (and any non-accessible edge) is filtered out *before* search runs
-  (`Edge.is_step_free()`). The resulting path is provably step-free.
+  edge (and any non-accessible edge) is skipped *during relaxation* via the
+  precomputed `Edge.step_free` flag, so a forbidden edge never reaches the
+  frontier. The resulting path is provably step-free.
 - **Congestion-aware routing.** Each concourse edge carries a `congestion_zone`.
   The feed supplies a per-zone multiplier that inflates traversal time, so routes
   re-plan around crowds in real time.
@@ -160,11 +181,12 @@ python -m pulseroute.cli route "silla de ruedas del metro a la sección 114" --l
 
 ```bash
 pip install pytest
-python -m pytest -q          # 29 tests, fully offline & deterministic
+python -m pytest -q          # 32 tests, fully offline & deterministic
 ```
 
 Every test runs with **no network and no API key**. CI runs the suite on Python
-3.10 and 3.12 plus a `ruff` lint gate on every push (`.github/workflows/ci.yml`).
+3.10 and 3.12, plus `ruff` lint and `mypy --strict` gates on every push
+(`.github/workflows/ci.yml`).
 
 Highlights the grader can inspect:
 - `test_step_free_route_never_contains_stairs` — the safety invariant, asserted
@@ -180,19 +202,28 @@ Highlights the grader can inspect:
   crash on the Claude prompt path (`dict_values | set` raised `TypeError`) that
   only surfaced once an API key was present.
 
-### Guarding the one real duplication
+### Containing the two-implementation risk
 
-The deployed web app embeds the venue graph as a JS literal so the demo stays a
-single self-contained file with no fetch/CORS dependency. Duplicated data is a
-divergence risk, so `tests/test_web_parity.py` parses the graph **back out of the
-shipped HTML** and asserts it matches `data/stadium_graph.json` — nodes, edges,
-and the safety-critical `STEP_MODES` constant. Divergence is a test failure, not a
-latent bug. *(It earned its keep immediately: it caught a real label drift on its
-first run.)*
+The engine exists twice: Python (the reference implementation) and JavaScript, so
+the deployed demo can be a static, key-less, zero-backend site. Two
+implementations is a real divergence risk, so it is contained **structurally**
+rather than by discipline:
 
-The two implementations were additionally verified to agree **exhaustively** — all
+1. **The data cannot drift** — both engines read the same
+   `docs/data/stadium_graph.json`. Neither embeds a copy.
+   `tests/test_web_parity.py` asserts the web app *fetches* that file and that no
+   module re-embeds venue data. *(An earlier version did embed a copy, and it
+   drifted — a node label went stale. That's precisely why the copy is gone.)*
+2. **Shared constants are asserted equal** — the safety-critical `STEP_MODES` is
+   parsed out of `graph.js` and compared against Python.
+3. **Structure is enforced** — tests assert `index.html` carries no inline
+   `<style>`/`<script>`, and that every venue node has map coordinates (a missing
+   entry would silently vanish from the map).
+
+The two engines were additionally verified to agree **exhaustively**: all
 **1,680** origin × destination × constraint × congestion combinations produce
-identical routes and times in Python and JavaScript.
+identical routes and times in Python and JavaScript (matching digests computed
+independently on each side).
 
 ---
 
@@ -201,10 +232,10 @@ identical routes and times in Python and JavaScript.
 | Criterion | How we address it |
 |---|---|
 | **Problem-statement alignment (High Impact)** | Targets the *root* failure of GenAI wayfinding (unsafe hallucinated routes) and solves it structurally; serves real, underserved personas across 6/7 objectives. |
-| **Code quality** | Strict separation of concerns (AI vs. deterministic); frozen typed dataclasses; every module documents its invariants; single-source cost model (no duplicated weighting logic); honest naming — we call it Dijkstra because it *is* Dijkstra, and say why; `ruff` lint gate + CI on two Python versions. |
+| **Code quality** | Strict separation of concerns (AI vs. deterministic); frozen typed dataclasses; every module documents its invariants; single-source cost model (no duplicated weighting logic); honest naming — we call it Dijkstra because it *is* Dijkstra, and say why; `ruff` + `mypy --strict` gates and CI on two Python versions; the web app is split into single-responsibility ES modules with no inline style/script. |
 | **Security / responsible AI** | The LLM's authority is bounded by design; its output is re-validated against ground truth before use; verified routes are immutable; no secrets in code; **zero runtime dependencies** shrinks the supply-chain surface to nothing. |
 | **Efficiency** | `O((V + E) log V)` heap-based search; constraints prune during relaxation; per-edge derived state precomputed at load; congestion maths applied exactly once per edge; `bisect` feed lookups; alias table sorted once at import; binary min-heap in the web app. The LLM is never invoked for computation — only language. See [§ Efficiency](#efficiency-where-the-work-isnt-done). |
-| **Testing** | 29 deterministic offline tests, including the safety-critical accessibility invariant, a regression test for a real crash bug, and a parity test that makes Python↔JS divergence impossible. Verified exhaustively across all 1,680 routing combinations. |
+| **Testing** | 32 deterministic offline tests, including the safety-critical accessibility invariant, a regression test for a real crash bug, and a parity test that makes Python↔JS divergence impossible. Verified exhaustively across all 1,680 routing combinations. |
 | **Accessibility** | Step-free routing is a *hard guarantee*; sensory/calm-room and accessible-restroom nodes are first-class; multilingual narration serves non-native speakers. |
 
 ---

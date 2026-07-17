@@ -45,7 +45,7 @@ class FeedSimulator:
     ``O(log n)`` binary search rather than re-sorting the timeline per call.
     """
 
-    def __init__(self, timeline: dict[int, tuple[dict, str]] | None = None):
+    def __init__(self, timeline: dict[int, tuple[dict[str, float], str]] | None = None):
         self._timeline = timeline or _TIMELINE
         self._keys = sorted(self._timeline)
         if not self._keys:

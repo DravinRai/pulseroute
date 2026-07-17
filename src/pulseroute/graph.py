@@ -26,6 +26,7 @@ import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 # Vertical-transition modes that require stepping / are not wheelchair-usable.
 STEP_MODES = frozenset({"stair", "escalator"})
@@ -122,7 +123,7 @@ class Graph:
     """
 
     def __init__(self, nodes: dict[str, Node], edges: list[Edge],
-                 external_arrival: dict | None = None):
+                 external_arrival: dict[str, Any] | None = None):
         self.nodes = nodes
         self.edges = edges
         self.external_arrival = external_arrival or {}

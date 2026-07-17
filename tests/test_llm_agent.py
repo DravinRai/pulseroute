@@ -1,8 +1,8 @@
 """Tests for the GenAI boundary layer, running in offline (rule-based) mode."""
-from pathlib import Path
 
 import pytest
 
+from pulseroute import VENUE_GRAPH_PATH
 from pulseroute.graph import Graph
 from pulseroute.llm_agent import (
     _VALID_NODE_IDS,
@@ -12,12 +12,10 @@ from pulseroute.llm_agent import (
     _extract_json,
 )
 
-DATA = Path(__file__).resolve().parents[1] / "data" / "stadium_graph.json"
-
 
 @pytest.fixture(scope="module")
 def graph():
-    return Graph.from_json(DATA)
+    return Graph.from_json(VENUE_GRAPH_PATH)
 
 
 @pytest.fixture

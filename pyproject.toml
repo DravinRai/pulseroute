@@ -13,7 +13,7 @@ dependencies = []
 
 [project.optional-dependencies]
 llm = ["anthropic>=0.40"]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "ruff>=0.6", "mypy>=1.11"]
 
 [project.scripts]
 pulseroute = "pulseroute.cli:main"
@@ -39,3 +39,14 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # Tests intentionally touch private helpers to pin down internal invariants.
 "tests/*" = ["ARG001"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src"]
+strict = true
+warn_unreachable = true
+# The GenAI layer is an optional extra; typeshed stubs are absent when it is not
+# installed, and the whole point of that layer is that it degrades gracefully.
+[[tool.mypy.overrides]]
+module = "anthropic.*"
+ignore_missing_imports = true
